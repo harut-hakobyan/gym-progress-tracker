@@ -76,6 +76,14 @@ class TemplateFlowHandler
             return;
         }
 
+        if ($state->state === TelegramState::AwaitingTemplateDayOfWeek->value) {
+            $this->bot->sendMessage($chatId, __('telegram.templates.choose_day_reminder'), [
+                'reply_markup' => $this->keyboards->cancelOnly(),
+            ]);
+
+            return;
+        }
+
         if ($state->state === TelegramState::AwaitingTemplateRename->value) {
             $this->handleRename($user, $chatId, $text, $state);
 
@@ -134,6 +142,12 @@ class TemplateFlowHandler
             return;
         }
 
+        if ($action === 'edit_day' && $target !== null) {
+            $this->startDayEdit($user, $chatId, $messageId, (int) $target);
+
+            return;
+        }
+
         if ($action === 'edit_exercises' && $target !== null) {
             $this->showExerciseManager($user, $chatId, $messageId, (int) $target);
 
@@ -158,6 +172,24 @@ class TemplateFlowHandler
             return;
         }
 
+        if ($action === 'day_create' && $target !== null) {
+            $this->handleDaySelection($user, $chatId, $messageId, (int) $target);
+
+            return;
+        }
+
+        if ($action === 'day_select' && $target !== null) {
+            $this->handleDaySelection($user, $chatId, $messageId, (int) $target);
+
+            return;
+        }
+
+        if ($action === 'day_edit' && $target !== null && $tail !== null) {
+            $this->updateTemplateDayOfWeek($user, $chatId, $messageId, (int) $target, (int) $tail);
+
+            return;
+        }
+
         if ($action === 'group' && $target !== null) {
             $this->toggleGroup($user, $chatId, $messageId, (int) $target);
 
@@ -176,7 +208,11 @@ class TemplateFlowHandler
             return;
         }
 
-        return;
+        if ($action === 'back') {
+            $this->handleBack($user, $chatId, $messageId);
+
+            return;
+        }
     }
 
     private function handleName(User $user, int $chatId, string $text, UserTelegramState $state): void
@@ -191,13 +227,69 @@ class TemplateFlowHandler
             return;
         }
 
-        $this->stateService->put($user, TelegramState::AwaitingTemplateMuscleGroups, [
+        $this->stateService->put($user, TelegramState::AwaitingTemplateDayOfWeek, [
             'message_id' => (int) data_get($state->payload, 'message_id'),
             'template_name' => $name,
+            'day_of_week' => null,
             'selected_group_ids' => [],
         ]);
 
-        $this->showGroupSelection($chatId, (int) data_get($state->payload, 'message_id'), $name, []);
+        $this->showDaySelection($chatId, (int) data_get($state->payload, 'message_id'), $name, null, false, null);
+    }
+
+    private function handleDaySelection(User $user, int $chatId, int $messageId, int $dayOfWeek): void
+    {
+        $state = $this->stateService->get($user);
+
+        if ($state === null || $state->state !== TelegramState::AwaitingTemplateDayOfWeek->value) {
+            return;
+        }
+
+        $dayOfWeek = $this->normalizeDayOfWeek($dayOfWeek);
+        $name = (string) data_get($state->payload, 'template_name', '');
+
+        $this->stateService->put($user, TelegramState::AwaitingTemplateMuscleGroups, [
+            'message_id' => (int) data_get($state->payload, 'message_id', $messageId),
+            'template_name' => $name,
+            'day_of_week' => $dayOfWeek,
+            'selected_group_ids' => [],
+        ]);
+
+        $this->showGroupSelection($chatId, (int) data_get($state->payload, 'message_id', $messageId), $name, [], $dayOfWeek);
+    }
+
+    private function handleBack(User $user, int $chatId, int $messageId): void
+    {
+        $state = $this->stateService->get($user);
+
+        if ($state !== null && $state->state === TelegramState::AwaitingTemplateMuscleGroups->value) {
+            $name = (string) data_get($state->payload, 'template_name', '');
+            $dayOfWeek = $this->normalizeDayOfWeek(data_get($state->payload, 'day_of_week'));
+
+            $this->stateService->put($user, TelegramState::AwaitingTemplateDayOfWeek, [
+                'message_id' => (int) data_get($state->payload, 'message_id', $messageId),
+                'template_name' => $name,
+                'day_of_week' => $dayOfWeek,
+            ]);
+
+            $this->showDaySelection($chatId, (int) data_get($state->payload, 'message_id', $messageId), $name, $dayOfWeek, false, null);
+
+            return;
+        }
+
+        if ($state !== null && $state->state === TelegramState::AwaitingTemplateDayOfWeek->value) {
+            $this->stateService->put($user, TelegramState::AwaitingTemplateName, [
+                'message_id' => (int) data_get($state->payload, 'message_id', $messageId),
+            ]);
+
+            $this->bot->editMessageText($chatId, $messageId, __('telegram.templates.name_prompt'), [
+                'reply_markup' => $this->keyboards->cancelOnly(),
+            ]);
+
+            return;
+        }
+
+        $this->showTemplateList($user, $chatId, $messageId);
     }
 
     private function toggleGroup(User $user, int $chatId, int $messageId, int $groupId): void
@@ -220,14 +312,16 @@ class TemplateFlowHandler
         }
 
         $name = (string) data_get($state->payload, 'template_name', '');
+        $dayOfWeek = $this->normalizeDayOfWeek(data_get($state->payload, 'day_of_week'));
 
         $this->stateService->put($user, TelegramState::AwaitingTemplateMuscleGroups, [
             'message_id' => (int) data_get($state->payload, 'message_id', $messageId),
             'template_name' => $name,
+            'day_of_week' => $dayOfWeek,
             'selected_group_ids' => $selected,
         ]);
 
-        $this->showGroupSelection($chatId, (int) data_get($state->payload, 'message_id', $messageId), $name, $selected);
+        $this->showGroupSelection($chatId, (int) data_get($state->payload, 'message_id', $messageId), $name, $selected, $dayOfWeek);
     }
 
     private function applyPreset(User $user, int $chatId, int $messageId, string $preset): void
@@ -252,14 +346,16 @@ class TemplateFlowHandler
             ->all();
 
         $name = (string) data_get($state->payload, 'template_name', '');
+        $dayOfWeek = $this->normalizeDayOfWeek(data_get($state->payload, 'day_of_week'));
 
         $this->stateService->put($user, TelegramState::AwaitingTemplateMuscleGroups, [
             'message_id' => (int) data_get($state->payload, 'message_id', $messageId),
             'template_name' => $name,
+            'day_of_week' => $dayOfWeek,
             'selected_group_ids' => $selected,
         ]);
 
-        $this->showGroupSelection($chatId, (int) data_get($state->payload, 'message_id', $messageId), $name, $selected);
+        $this->showGroupSelection($chatId, (int) data_get($state->payload, 'message_id', $messageId), $name, $selected, $dayOfWeek);
     }
 
     private function completeCreation(User $user, int $chatId, int $messageId): void
@@ -286,6 +382,8 @@ class TemplateFlowHandler
             $user,
             (string) data_get($state->payload, 'template_name', 'Workout'),
             $selectedGroupIds,
+            null,
+            $this->normalizeDayOfWeek(data_get($state->payload, 'day_of_week')),
         );
 
         $template->loadMissing('templateExercises.exercise.muscleGroup');
@@ -342,6 +440,47 @@ class TemplateFlowHandler
         $this->bot->editMessageText($chatId, $messageId, __('telegram.templates.description_prompt'), [
             'reply_markup' => $this->keyboards->cancelOnly(),
         ]);
+    }
+
+    private function startDayEdit(User $user, int $chatId, int $messageId, int $templateId): void
+    {
+        $template = $user->workoutTemplates()->find($templateId);
+
+        if ($template === null) {
+            $this->bot->editMessageText($chatId, $messageId, __('telegram.templates.not_found'), [
+                'reply_markup' => $this->keyboards->templateManager([]),
+            ]);
+
+            return;
+        }
+
+        $this->bot->editMessageText($chatId, $messageId, $this->daySelectionText($template->name, $template->day_of_week), [
+            'reply_markup' => $this->keyboards->templateDayOfWeekSelection(
+                $template->day_of_week,
+                'templates:edit:'.$template->id,
+                'templates:day_edit',
+                $template->id
+            ),
+        ]);
+    }
+
+    private function updateTemplateDayOfWeek(User $user, int $chatId, int $messageId, int $templateId, int $dayOfWeek): void
+    {
+        $template = $user->workoutTemplates()->find($templateId);
+
+        if ($template === null) {
+            $this->bot->editMessageText($chatId, $messageId, __('telegram.templates.not_found'), [
+                'reply_markup' => $this->keyboards->templateManager([]),
+            ]);
+
+            return;
+        }
+
+        $template = $this->templates->updateTemplate($template, [
+            'day_of_week' => $this->normalizeDayOfWeek($dayOfWeek),
+        ]);
+
+        $this->showEditMenu($user, $chatId, $messageId, $template->id);
     }
 
     private function handleRename(User $user, int $chatId, string $text, UserTelegramState $state): void
@@ -451,6 +590,7 @@ class TemplateFlowHandler
         $lines = [
             __('telegram.templates.edit_title'),
             $template->name,
+            __('telegram.templates.day_summary', ['day' => $this->dayOfWeekLabel($template->day_of_week)]),
             __('telegram.templates.exercise_count', ['count' => $template->template_exercises_count]),
         ];
 
@@ -549,6 +689,7 @@ class TemplateFlowHandler
             __('telegram.templates.title'),
             '',
             $template->name,
+            __('telegram.templates.day_summary', ['day' => $this->dayOfWeekLabel($template->day_of_week)]),
         ];
 
         if ($template->description !== null && $template->description !== '') {
@@ -567,7 +708,7 @@ class TemplateFlowHandler
         ]);
     }
 
-    private function showGroupSelection(int $chatId, int $messageId, string $name, array $selectedGroupIds): void
+    private function showGroupSelection(int $chatId, int $messageId, string $name, array $selectedGroupIds, ?int $dayOfWeek = null): void
     {
         $groups = MuscleGroup::query()
             ->orderBy('name')
@@ -585,6 +726,7 @@ class TemplateFlowHandler
             ->all();
 
         $text = __('telegram.templates.choose_groups', ['name' => $name]);
+        $text .= "\n\n".__('telegram.templates.day_summary', ['day' => $this->dayOfWeekLabel($dayOfWeek)]);
 
         if ($selectedNames !== []) {
             $text .= "\n\n".__('telegram.templates.selected_groups', [
@@ -595,6 +737,59 @@ class TemplateFlowHandler
         $this->bot->editMessageText($chatId, $messageId, $text, [
             'reply_markup' => $this->keyboards->templateGroupSelection($groups, $selectedGroupIds),
         ]);
+    }
+
+    private function showDaySelection(int $chatId, int $messageId, string $name, ?int $selectedDayOfWeek, bool $editing, ?int $templateId): void
+    {
+        $backCallback = $editing && $templateId !== null ? 'templates:edit:'.$templateId : 'templates:back';
+        $actionPrefix = $editing && $templateId !== null ? 'templates:day_edit' : 'templates:day_create';
+
+        $this->bot->editMessageText($chatId, $messageId, $this->daySelectionText($name, $selectedDayOfWeek), [
+            'reply_markup' => $this->keyboards->templateDayOfWeekSelection($selectedDayOfWeek, $backCallback, $actionPrefix, $templateId),
+        ]);
+    }
+
+    private function daySelectionText(string $name, ?int $selectedDayOfWeek): string
+    {
+        $lines = [
+            __('telegram.templates.day_prompt', ['name' => $name]),
+            __('telegram.templates.choose_day_reminder'),
+        ];
+
+        if ($selectedDayOfWeek !== null) {
+            $lines[] = __('telegram.templates.day_summary', ['day' => $this->dayOfWeekLabel($selectedDayOfWeek)]);
+        }
+
+        return implode("\n\n", $lines);
+    }
+
+    private function normalizeDayOfWeek(mixed $dayOfWeek): ?int
+    {
+        if ($dayOfWeek === null || $dayOfWeek === '') {
+            return null;
+        }
+
+        $dayOfWeek = (int) $dayOfWeek;
+
+        if ($dayOfWeek < 1 || $dayOfWeek > 7) {
+            return null;
+        }
+
+        return $dayOfWeek;
+    }
+
+    private function dayOfWeekLabel(?int $dayOfWeek): string
+    {
+        return match ($this->normalizeDayOfWeek($dayOfWeek)) {
+            1 => __('telegram.days.monday'),
+            2 => __('telegram.days.tuesday'),
+            3 => __('telegram.days.wednesday'),
+            4 => __('telegram.days.thursday'),
+            5 => __('telegram.days.friday'),
+            6 => __('telegram.days.saturday'),
+            7 => __('telegram.days.sunday'),
+            default => __('telegram.templates.day_not_set'),
+        };
     }
 
     private function presetGroupNames(string $preset): array

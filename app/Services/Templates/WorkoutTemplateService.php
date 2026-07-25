@@ -68,6 +68,7 @@ class WorkoutTemplateService
         $template->update([
             'name' => isset($data['name']) ? $this->normalizeName((string) $data['name']) : $template->name,
             'description' => array_key_exists('description', $data) ? $data['description'] : $template->description,
+            'day_of_week' => array_key_exists('day_of_week', $data) ? $data['day_of_week'] : $template->day_of_week,
             'is_active' => array_key_exists('is_active', $data) ? (bool) $data['is_active'] : $template->is_active,
         ]);
 
@@ -97,6 +98,7 @@ class WorkoutTemplateService
                 'user_id' => $user->id,
                 'name' => $name ?: $template->name.' copy',
                 'description' => $template->description,
+                'day_of_week' => $template->day_of_week,
                 'is_active' => $template->is_active,
             ]);
 
@@ -118,7 +120,7 @@ class WorkoutTemplateService
         });
     }
 
-    public function createFromMuscleGroups(User $user, string $name, array $muscleGroupIds, ?string $description = null): WorkoutTemplate
+    public function createFromMuscleGroups(User $user, string $name, array $muscleGroupIds, ?string $description = null, ?int $dayOfWeek = null): WorkoutTemplate
     {
         $groupIds = collect($muscleGroupIds)
             ->map(fn ($id) => (int) $id)
@@ -127,7 +129,7 @@ class WorkoutTemplateService
             ->values()
             ->all();
 
-        return DB::transaction(function () use ($user, $name, $groupIds, $description): WorkoutTemplate {
+        return DB::transaction(function () use ($user, $name, $groupIds, $description, $dayOfWeek): WorkoutTemplate {
             $groups = MuscleGroup::query()
                 ->whereIn('id', $groupIds)
                 ->get()
@@ -137,6 +139,7 @@ class WorkoutTemplateService
                 'user_id' => $user->id,
                 'name' => $this->normalizeName($name),
                 'description' => $description ?? $groups->pluck('name')->implode(' + '),
+                'day_of_week' => $dayOfWeek,
                 'is_active' => true,
             ]);
 

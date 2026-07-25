@@ -15,11 +15,13 @@ class WorkoutTemplate extends Model
         'user_id',
         'name',
         'description',
+        'day_of_week',
         'is_active',
     ];
 
     protected $casts = [
         'user_id' => 'integer',
+        'day_of_week' => 'integer',
         'is_active' => 'boolean',
     ];
 

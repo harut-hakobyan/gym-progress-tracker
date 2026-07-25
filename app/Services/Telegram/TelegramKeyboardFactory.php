@@ -57,7 +57,7 @@ class TelegramKeyboardFactory
                 'callback_data' => 'templates:create',
             ],
             [
-                'text' => __('telegram.workout.standard_templates_heading'),
+                'text' => __('telegram.buttons.standard_templates'),
                 'callback_data' => 'workout:templates:standard',
             ],
         ];
@@ -377,6 +377,12 @@ class TelegramKeyboardFactory
                 ],
                 [
                     [
+                        'text' => __('telegram.templates.actions.day'),
+                        'callback_data' => 'templates:edit_day:'.$templateId,
+                    ],
+                ],
+                [
+                    [
                         'text' => __('telegram.templates.actions.exercises'),
                         'callback_data' => 'templates:edit_exercises:'.$templateId,
                     ],
@@ -515,8 +521,64 @@ class TelegramKeyboardFactory
                 'callback_data' => 'templates:done',
             ],
             [
-                'text' => __('telegram.templates.back_to_list'),
-                'callback_data' => 'templates:list',
+                'text' => __('telegram.buttons.back'),
+                'callback_data' => 'templates:back',
+            ],
+        ];
+
+        return ['inline_keyboard' => $keyboard];
+    }
+
+    public function templateDayOfWeekSelection(?int $selectedDayOfWeek, string $backCallback, string $actionPrefix = 'templates:day_create', ?int $templateId = null): array
+    {
+        $selected = $selectedDayOfWeek ?? 0;
+        $keyboard = [];
+
+        $days = [
+            1 => __('telegram.days.monday'),
+            2 => __('telegram.days.tuesday'),
+            3 => __('telegram.days.wednesday'),
+            4 => __('telegram.days.thursday'),
+            5 => __('telegram.days.friday'),
+            6 => __('telegram.days.saturday'),
+            7 => __('telegram.days.sunday'),
+        ];
+
+        $row = [];
+
+        foreach ($days as $value => $label) {
+            $callbackData = $actionPrefix === 'templates:day_edit' && $templateId !== null
+                ? $actionPrefix.':'.$templateId.':'.$value
+                : $actionPrefix.':'.$value;
+
+            $row[] = [
+                'text' => ($selected === $value ? __('telegram.templates.selected_mark').' ' : '').$label,
+                'callback_data' => $callbackData,
+            ];
+
+            if (count($row) === 2) {
+                $keyboard[] = $row;
+                $row = [];
+            }
+        }
+
+        if ($row !== []) {
+            $keyboard[] = $row;
+        }
+
+        $keyboard[] = [
+            [
+                'text' => ($selected === 0 ? __('telegram.templates.selected_mark').' ' : '').__('telegram.templates.day_none'),
+                'callback_data' => $actionPrefix === 'templates:day_edit' && $templateId !== null
+                    ? $actionPrefix.':'.$templateId.':0'
+                    : $actionPrefix.':0',
+            ],
+        ];
+
+        $keyboard[] = [
+            [
+                'text' => __('telegram.buttons.back'),
+                'callback_data' => $backCallback,
             ],
         ];
 

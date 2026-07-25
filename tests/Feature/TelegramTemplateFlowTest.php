@@ -117,7 +117,7 @@ class TelegramTemplateFlowTest extends TestCase
                         'type' => 'private',
                     ],
                 ],
-                'data' => 'templates:split:chest_triceps',
+                'data' => 'templates:day_create:1',
             ],
         ])->assertOk();
 
@@ -125,6 +125,26 @@ class TelegramTemplateFlowTest extends TestCase
             'update_id' => 5006,
             'callback_query' => [
                 'id' => 'cb-4',
+                'from' => [
+                    'id' => $telegramId,
+                    'first_name' => 'Harut',
+                    'username' => 'harut',
+                ],
+                'message' => [
+                    'message_id' => 10,
+                    'chat' => [
+                        'id' => $telegramId,
+                        'type' => 'private',
+                    ],
+                ],
+                'data' => 'templates:split:chest_triceps',
+            ],
+        ])->assertOk();
+
+        $this->postJson('/api/telegram/webhook/test-secret', [
+            'update_id' => 5007,
+            'callback_query' => [
+                'id' => 'cb-5',
                 'from' => [
                     'id' => $telegramId,
                     'first_name' => 'Harut',
@@ -156,6 +176,7 @@ class TelegramTemplateFlowTest extends TestCase
             ->all();
 
         $this->assertCount(4, $template->templateExercises);
+        $this->assertSame(1, $template->day_of_week);
 
         foreach ($expectedExercises as $exerciseId) {
             $this->assertDatabaseHas('workout_template_exercises', [
@@ -165,7 +186,7 @@ class TelegramTemplateFlowTest extends TestCase
         }
     }
 
-    public function test_user_can_rename_and_delete_own_template_in_telegram(): void
+    public function test_user_can_rename_edit_day_and_delete_own_template_in_telegram(): void
     {
         Http::fake([
             'api.telegram.org/*' => Http::response(['ok' => true, 'result' => []], 200),
@@ -270,6 +291,51 @@ class TelegramTemplateFlowTest extends TestCase
         $this->postJson('/api/telegram/webhook/test-secret', [
             'update_id' => 6005,
             'callback_query' => [
+                'id' => 'cb-2c',
+                'from' => [
+                    'id' => $telegramId,
+                    'first_name' => 'Harut',
+                    'username' => 'harut',
+                ],
+                'message' => [
+                    'message_id' => 10,
+                    'chat' => [
+                        'id' => $telegramId,
+                        'type' => 'private',
+                    ],
+                ],
+                'data' => 'templates:edit_day:'.$template->id,
+            ],
+        ])->assertOk();
+
+        $this->postJson('/api/telegram/webhook/test-secret', [
+            'update_id' => 6006,
+            'callback_query' => [
+                'id' => 'cb-2d',
+                'from' => [
+                    'id' => $telegramId,
+                    'first_name' => 'Harut',
+                    'username' => 'harut',
+                ],
+                'message' => [
+                    'message_id' => 10,
+                    'chat' => [
+                        'id' => $telegramId,
+                        'type' => 'private',
+                    ],
+                ],
+                'data' => 'templates:day_edit:'.$template->id.':5',
+            ],
+        ])->assertOk();
+
+        $this->assertDatabaseHas('workout_templates', [
+            'id' => $template->id,
+            'day_of_week' => 5,
+        ]);
+
+        $this->postJson('/api/telegram/webhook/test-secret', [
+            'update_id' => 6007,
+            'callback_query' => [
                 'id' => 'cb-3',
                 'from' => [
                     'id' => $telegramId,
@@ -288,7 +354,7 @@ class TelegramTemplateFlowTest extends TestCase
         ])->assertOk();
 
         $this->postJson('/api/telegram/webhook/test-secret', [
-            'update_id' => 6006,
+            'update_id' => 6008,
             'callback_query' => [
                 'id' => 'cb-4',
                 'from' => [
