@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Models\Workout;
 use App\Models\WorkoutExercise;
 use App\Services\Forecasting\ExerciseProgressForecastService;
+use App\Services\Telegram\Handlers\WorkoutSetInputHandler;
 use App\Services\Telegram\TelegramBotService;
 use App\Services\Telegram\TelegramKeyboardFactory;
 use App\Services\Telegram\TelegramStateService;
@@ -19,6 +20,7 @@ class WorkoutFlowHandler
         private readonly WorkoutFlowService $workouts,
         private readonly WorkoutMetricsService $metrics,
         private readonly ExerciseProgressForecastService $forecasting,
+        private readonly WorkoutSetInputHandler $workoutSetInputHandler,
         private readonly TelegramBotService $bot,
         private readonly TelegramKeyboardFactory $keyboards,
         private readonly TelegramStateService $stateService,
@@ -154,6 +156,16 @@ class WorkoutFlowHandler
 
         $lastSet = $repeat ? $this->workouts->lastSet($workoutExercise) : null;
 
+        if ($repeat && $lastSet !== null) {
+            $this->workoutSetInputHandler->saveSetAndRespond($user, $chatId, $messageId, [
+                'workout_exercise_id' => $workoutExercise->id,
+                'weight' => (float) $lastSet->weight,
+                'repetitions' => (int) $lastSet->repetitions,
+            ]);
+
+            return;
+        }
+
         $payload = [
             'workout_exercise_id' => $workoutExercise->id,
             'repeat' => $repeat,
@@ -168,7 +180,7 @@ class WorkoutFlowHandler
             $prompt .= "\n\n".__('telegram.workout.repeat_hint', [
                 'weight' => $lastSet->weight,
                 'repetitions' => $lastSet->repetitions,
-                'rpe' => $lastSet->rpe ?? '—',
+
             ]);
         }
 

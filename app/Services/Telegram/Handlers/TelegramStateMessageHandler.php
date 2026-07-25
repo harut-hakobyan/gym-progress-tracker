@@ -9,6 +9,7 @@ use App\Models\UserTelegramState;
 class TelegramStateMessageHandler
 {
     public function __construct(
+        private readonly TemplateFlowHandler $templateFlowHandler,
         private readonly WorkoutSetInputHandler $workoutSetInputHandler,
         private readonly GoalsInputHandler $goalsInputHandler,
     ) {
@@ -17,9 +18,10 @@ class TelegramStateMessageHandler
     public function handle(User $user, array $message, UserTelegramState $state): void
     {
         match ($state->state) {
+            TelegramState::AwaitingTemplateName->value,
+            TelegramState::AwaitingTemplateMuscleGroups->value => $this->templateFlowHandler->handle($user, $message, $state),
             TelegramState::AwaitingSetWeight->value,
-            TelegramState::AwaitingSetRepetitions->value,
-            TelegramState::AwaitingSetRpe->value => $this->workoutSetInputHandler->handle($user, $message, $state),
+            TelegramState::AwaitingSetRepetitions->value => $this->workoutSetInputHandler->handle($user, $message, $state),
             TelegramState::AwaitingGoalValue->value,
             TelegramState::AwaitingGoalDate->value => $this->goalsInputHandler->handle($user, $message, $state),
             default => null,

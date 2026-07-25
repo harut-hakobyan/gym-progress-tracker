@@ -104,7 +104,16 @@ class WorkoutFlowService
                 'completed_at' => now(),
                 'notes' => $notes,
             ]);
-        });
+            });
+    }
+
+    public function updateSetRpe(WorkoutSet $set, ?int $rpe): WorkoutSet
+    {
+        $set->update([
+            'rpe' => $rpe,
+        ]);
+
+        return $set->refresh();
     }
 
     public function workoutExercises(Workout $workout): Collection

@@ -29,7 +29,7 @@ Stage 3 is in place:
 - workout template selection;
 - active workout creation;
 - exercise selection inside an active workout;
-- add set flow with weight, repetitions and optional RPE;
+- add set flow with weight and repetitions;
 - set saving with volume and estimated 1RM calculation;
 - workout completion with summary;
 - tests for the workout flow and metrics.
@@ -100,6 +100,14 @@ Stage 12 is in place:
 - cleaned up Telegram translation files;
 - removed mojibake from fallback workout strings;
 - preserved a clean UTF-8 user-facing message set for Telegram.
+
+Stage 13 is in place:
+
+- custom Telegram workout templates;
+- template creation from muscle-group splits;
+- quick split presets like chest + triceps and back + legs;
+- automated template exercise filling from selected muscle groups;
+- tests for the Telegram template builder flow.
 
 ## MVP scope
 

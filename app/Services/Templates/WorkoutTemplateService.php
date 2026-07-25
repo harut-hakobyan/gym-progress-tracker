@@ -3,6 +3,7 @@
 namespace App\Services\Templates;
 
 use App\Models\Exercise;
+use App\Models\MuscleGroup;
 use App\Models\User;
 use App\Models\WorkoutTemplate;
 use App\Models\WorkoutTemplateExercise;
@@ -89,6 +90,57 @@ class WorkoutTemplateService
             }
 
             return $copy;
+        });
+    }
+
+    public function createFromMuscleGroups(User $user, string $name, array $muscleGroupIds, ?string $description = null): WorkoutTemplate
+    {
+        $groupIds = collect($muscleGroupIds)
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn (int $id) => $id > 0)
+            ->unique()
+            ->values()
+            ->all();
+
+        return DB::transaction(function () use ($user, $name, $groupIds, $description): WorkoutTemplate {
+            $groups = MuscleGroup::query()
+                ->whereIn('id', $groupIds)
+                ->get()
+                ->keyBy('id');
+
+            $template = WorkoutTemplate::query()->create([
+                'user_id' => $user->id,
+                'name' => $this->normalizeName($name),
+                'description' => $description ?? $groups->pluck('name')->implode(' + '),
+                'is_active' => true,
+            ]);
+
+            $position = 1;
+
+            foreach ($groupIds as $groupId) {
+                Exercise::query()
+                    ->with('muscleGroup')
+                    ->where('muscle_group_id', $groupId)
+                    ->where('is_active', true)
+                    ->where(fn ($query) => $query->whereNull('user_id')->orWhere('user_id', $user->id))
+                    ->orderBy('name')
+                    ->get()
+                    ->each(function (Exercise $exercise) use ($template, &$position): void {
+                        WorkoutTemplateExercise::query()->create([
+                            'workout_template_id' => $template->id,
+                            'exercise_id' => $exercise->id,
+                            'position' => $position++,
+                            'target_sets' => 3,
+                            'target_repetitions_min' => 6,
+                            'target_repetitions_max' => 10,
+                            'target_weight' => null,
+                            'rest_seconds' => 90,
+                            'notes' => null,
+                        ]);
+                    });
+            }
+
+            return $template;
         });
     }
 

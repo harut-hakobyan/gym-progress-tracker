@@ -154,20 +154,6 @@ class TelegramKeyboardFactory
         return ['inline_keyboard' => $keyboard];
     }
 
-    public function setRpeSkip(int $workoutExerciseId): array
-    {
-        return [
-            'inline_keyboard' => [
-                [
-                    [
-                        'text' => 'Пропустить',
-                        'callback_data' => 'set:rpe:skip:'.$workoutExerciseId,
-                    ],
-                ],
-            ],
-        ];
-    }
-
     public function setResult(int $workoutExerciseId): array
     {
         return [
@@ -279,6 +265,132 @@ class TelegramKeyboardFactory
                 ],
             ],
         ];
+    }
+
+    public function templateManager(array $templates): array
+    {
+        $keyboard = [];
+
+        foreach ($templates as $template) {
+            $keyboard[] = [
+                [
+                    'text' => $template['name'].($template['count'] > 0 ? ' ('.$template['count'].')' : ''),
+                    'callback_data' => 'templates:view:'.$template['id'],
+                ],
+            ];
+        }
+
+        $keyboard[] = [
+            [
+                'text' => __('telegram.templates.create'),
+                'callback_data' => 'templates:create',
+            ],
+        ];
+
+        $keyboard[] = [
+            [
+                'text' => __('telegram.templates.back_to_menu'),
+                'callback_data' => 'common:menu',
+            ],
+        ];
+
+        return ['inline_keyboard' => $keyboard];
+    }
+
+    public function templateDetailActions(): array
+    {
+        return [
+            'inline_keyboard' => [
+                [
+                    [
+                        'text' => __('telegram.templates.back_to_list'),
+                        'callback_data' => 'templates:list',
+                    ],
+                    [
+                        'text' => __('telegram.templates.create'),
+                        'callback_data' => 'templates:create',
+                    ],
+                ],
+                [
+                    [
+                        'text' => __('telegram.templates.back_to_menu'),
+                        'callback_data' => 'common:menu',
+                    ],
+                ],
+            ],
+        ];
+    }
+
+    public function templateGroupSelection(array $groups, array $selectedGroupIds): array
+    {
+        $selected = array_map('intval', $selectedGroupIds);
+        $keyboard = [];
+
+        $keyboard[] = [
+            [
+                'text' => __('telegram.templates.preset_chest_triceps'),
+                'callback_data' => 'templates:split:chest_triceps',
+            ],
+            [
+                'text' => __('telegram.templates.preset_back_biceps'),
+                'callback_data' => 'templates:split:back_biceps',
+            ],
+        ];
+
+        $keyboard[] = [
+            [
+                'text' => __('telegram.templates.preset_back_legs'),
+                'callback_data' => 'templates:split:back_legs',
+            ],
+            [
+                'text' => __('telegram.templates.preset_push'),
+                'callback_data' => 'templates:split:push',
+            ],
+        ];
+
+        $keyboard[] = [
+            [
+                'text' => __('telegram.templates.preset_pull'),
+                'callback_data' => 'templates:split:pull',
+            ],
+            [
+                'text' => __('telegram.templates.preset_full_body'),
+                'callback_data' => 'templates:split:full_body',
+            ],
+        ];
+
+        $row = [];
+
+        foreach ($groups as $group) {
+            $isSelected = in_array((int) $group['id'], $selected, true);
+
+            $row[] = [
+                'text' => ($isSelected ? '✅ ' : '').$group['name'],
+                'callback_data' => 'templates:group:'.$group['id'],
+            ];
+
+            if (count($row) === 2) {
+                $keyboard[] = $row;
+                $row = [];
+            }
+        }
+
+        if ($row !== []) {
+            $keyboard[] = $row;
+        }
+
+        $keyboard[] = [
+            [
+                'text' => __('telegram.templates.done'),
+                'callback_data' => 'templates:done',
+            ],
+            [
+                'text' => __('telegram.templates.back_to_list'),
+                'callback_data' => 'templates:list',
+            ],
+        ];
+
+        return ['inline_keyboard' => $keyboard];
     }
 
     public function goalTypeSelection(): array

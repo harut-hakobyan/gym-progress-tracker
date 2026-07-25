@@ -34,20 +34,13 @@ class WorkoutSetInputHandler
         match ($state->state) {
             TelegramState::AwaitingSetWeight->value => $this->handleWeight($user, $chatId, $text, $state),
             TelegramState::AwaitingSetRepetitions->value => $this->handleRepetitions($user, $chatId, $text, $state),
-            TelegramState::AwaitingSetRpe->value => $this->handleRpe($user, $chatId, $text, $state),
             default => null,
         };
     }
 
     public function completeSkippedRpe(User $user, int $chatId, int $messageId): void
     {
-        $state = $this->stateService->get($user);
-
-        if ($state === null || $state->state !== TelegramState::AwaitingSetRpe->value) {
-            return;
-        }
-
-        $this->saveSetAndRespond($user, $chatId, $messageId, $state, null);
+        return;
     }
 
     private function handleWeight(User $user, int $chatId, string $text, UserTelegramState $state): void
@@ -70,9 +63,11 @@ class WorkoutSetInputHandler
             return;
         }
 
-        $this->stateService->put($user, TelegramState::AwaitingSetRepetitions, array_merge($state->payload ?? [], [
+        $payload = array_merge($state->payload ?? [], [
             'weight' => $weight,
-        ]));
+        ]);
+
+        $this->stateService->put($user, TelegramState::AwaitingSetRepetitions, $payload);
 
         $this->bot->sendMessage($chatId, __('telegram.workout.set_repetitions_prompt', ['weight' => $weight]), [
             'reply_markup' => $this->keyboards->cancelOnly(),
@@ -99,45 +94,16 @@ class WorkoutSetInputHandler
             return;
         }
 
-        $this->stateService->put($user, TelegramState::AwaitingSetRpe, array_merge($state->payload ?? [], [
+        $payload = array_merge($state->payload ?? [], [
             'repetitions' => $repetitions,
-        ]));
-
-        $this->bot->sendMessage($chatId, __('telegram.workout.set_rpe_prompt'), [
-            'reply_markup' => $this->keyboards->setRpeSkip((int) data_get($state->payload, 'workout_exercise_id')),
         ]);
+
+        $this->saveSetAndRespond($user, $chatId, null, $payload);
     }
 
-    private function handleRpe(User $user, int $chatId, string $text, UserTelegramState $state): void
+    public function saveSetAndRespond(User $user, int $chatId, ?int $messageId, array $payload): void
     {
-        $rpe = null;
-
-        if ($text !== '' && ! in_array(mb_strtolower($text), ['skip', '-', '0'], true)) {
-            if (! ctype_digit($text)) {
-                $this->bot->sendMessage($chatId, __('telegram.workout.invalid_rpe'), [
-                    'reply_markup' => $this->keyboards->setRpeSkip((int) data_get($state->payload, 'workout_exercise_id')),
-                ]);
-
-                return;
-            }
-
-            $rpe = (int) $text;
-
-            if ($rpe < 1 || $rpe > 10) {
-                $this->bot->sendMessage($chatId, __('telegram.workout.invalid_rpe'), [
-                    'reply_markup' => $this->keyboards->setRpeSkip((int) data_get($state->payload, 'workout_exercise_id')),
-                ]);
-
-                return;
-            }
-        }
-
-        $this->saveSetAndRespond($user, $chatId, null, $state, $rpe);
-    }
-
-    private function saveSetAndRespond(User $user, int $chatId, ?int $messageId, UserTelegramState $state, ?int $rpe): void
-    {
-        $workoutExerciseId = (int) data_get($state->payload, 'workout_exercise_id');
+        $workoutExerciseId = (int) data_get($payload, 'workout_exercise_id');
         $workoutExercise = $this->workouts->workoutExerciseById($user, $workoutExerciseId);
 
         if ($workoutExercise === null) {
@@ -147,8 +113,8 @@ class WorkoutSetInputHandler
             return;
         }
 
-        $weight = (float) data_get($state->payload, 'weight', 0);
-        $repetitions = (int) data_get($state->payload, 'repetitions', 0);
+        $weight = (float) data_get($payload, 'weight', 0);
+        $repetitions = (int) data_get($payload, 'repetitions', 0);
 
         if ($repetitions <= 0) {
             $this->stateService->forget($user);
@@ -161,7 +127,7 @@ class WorkoutSetInputHandler
             $workoutExercise,
             $weight,
             $repetitions,
-            $rpe,
+            null,
             null,
             WorkoutSetType::Working
         );

@@ -15,6 +15,7 @@ class CallbackQueryHandler
         private readonly TelegramBotService $bot,
         private readonly TelegramKeyboardFactory $keyboards,
         private readonly TelegramStateService $stateService,
+        private readonly TemplateFlowHandler $templateFlowHandler,
         private readonly WorkoutFlowHandler $workoutFlowHandler,
         private readonly WorkoutSetInputHandler $workoutSetInputHandler,
         private readonly GoalsHandler $goalsHandler,
@@ -59,12 +60,13 @@ class CallbackQueryHandler
         match ($scope) {
             'workout' => $this->handleWorkoutCallbacks($callbackQueryId, $user, $chatId, $messageId, $action, $target),
             'set' => $this->handleSetCallbacks($callbackQueryId, $user, $chatId, $messageId, $action, $target, $tail),
+            'templates' => $this->handleTemplateCallbacks($callbackQueryId, $user, $chatId, $messageId, $action, $target, $tail),
             'exercise' => $this->handleExerciseCallbacks($callbackQueryId, $user, $chatId, $messageId, $action, $target),
             'goals' => $this->handleGoalsCallbacks($callbackQueryId, $user, $chatId, $messageId, $action, $target),
             'history' => $this->handleHistoryCallbacks($callbackQueryId, $user, $chatId, $messageId, $action, $target),
             'stats' => $this->handleStatsCallbacks($callbackQueryId, $user, $chatId, $messageId, $action),
             'records' => $this->handleRecordsCallbacks($callbackQueryId, $user, $chatId, $messageId, $action),
-            'templates', 'settings' => $this->handlePlaceholderSection($callbackQueryId, $chatId, $messageId, $scope, $action),
+            'settings' => $this->handlePlaceholderSection($callbackQueryId, $chatId, $messageId, $scope, $action),
             default => $this->bot->answerCallbackQuery($callbackQueryId, __('telegram.unknown_action')),
         };
     }
@@ -132,14 +134,13 @@ class CallbackQueryHandler
             return;
         }
 
-        if ($action === 'rpe' && $target === 'skip') {
-            $this->bot->answerCallbackQuery($callbackQueryId);
-            $this->workoutSetInputHandler->completeSkippedRpe($user, $chatId, $messageId);
-
-            return;
-        }
-
         $this->bot->answerCallbackQuery($callbackQueryId, __('telegram.unknown_action'));
+    }
+
+    private function handleTemplateCallbacks(string $callbackQueryId, User $user, int $chatId, int $messageId, string $action, ?string $target, ?string $tail): void
+    {
+        $this->bot->answerCallbackQuery($callbackQueryId);
+        $this->templateFlowHandler->handleCallbacks($callbackQueryId, $user, $chatId, $messageId, $action, $target, $tail);
     }
 
     private function handleExerciseCallbacks(string $callbackQueryId, User $user, int $chatId, int $messageId, string $action, ?string $target): void
