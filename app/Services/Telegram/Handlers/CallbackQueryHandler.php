@@ -16,6 +16,7 @@ class CallbackQueryHandler
         private readonly TelegramKeyboardFactory $keyboards,
         private readonly TelegramStateService $stateService,
         private readonly TemplateFlowHandler $templateFlowHandler,
+        private readonly AdminFlowHandler $adminFlowHandler,
         private readonly WorkoutFlowHandler $workoutFlowHandler,
         private readonly WorkoutSetInputHandler $workoutSetInputHandler,
         private readonly GoalsHandler $goalsHandler,
@@ -66,7 +67,7 @@ class CallbackQueryHandler
             'history' => $this->handleHistoryCallbacks($callbackQueryId, $user, $chatId, $messageId, $action, $target),
             'stats' => $this->handleStatsCallbacks($callbackQueryId, $user, $chatId, $messageId, $action),
             'records' => $this->handleRecordsCallbacks($callbackQueryId, $user, $chatId, $messageId, $action),
-            'settings' => $this->handlePlaceholderSection($callbackQueryId, $chatId, $messageId, $scope, $action),
+            'settings' => $this->handleSettingsCallbacks($callbackQueryId, $user, $chatId, $messageId, $action, $target, $tail),
             default => $this->bot->answerCallbackQuery($callbackQueryId, __('telegram.unknown_action')),
         };
     }
@@ -248,17 +249,52 @@ class CallbackQueryHandler
         $this->bot->answerCallbackQuery($callbackQueryId, __('telegram.unknown_action'));
     }
 
-    private function handlePlaceholderSection(string $callbackQueryId, int $chatId, int $messageId, string $scope, string $action): void
+    private function handleSettingsCallbacks(string $callbackQueryId, User $user, int $chatId, int $messageId, string $action, ?string $target, ?string $tail): void
     {
-        $message = __("telegram.sections.{$scope}.{$action}");
+        if ($action === 'main') {
+            $this->bot->answerCallbackQuery($callbackQueryId);
+            $this->adminFlowHandler->showSettingsMenu($user, $chatId, $messageId);
 
-        if ($message === "telegram.sections.{$scope}.{$action}") {
-            $message = __('telegram.section_in_development');
+            return;
         }
 
-        $this->bot->answerCallbackQuery($callbackQueryId, $message);
-        $this->bot->editMessageText($chatId, $messageId, $message, [
-            'reply_markup' => $this->keyboards->mainMenu(),
-        ]);
+        if ($action === 'admin') {
+            $this->bot->answerCallbackQuery($callbackQueryId);
+            $this->adminFlowHandler->showAdminMenu($user, $chatId, $messageId);
+
+            return;
+        }
+
+        if ($action === 'admin_group' && $target !== null) {
+            $this->bot->answerCallbackQuery($callbackQueryId);
+            $this->adminFlowHandler->showGroup($user, $chatId, $messageId, (int) $target);
+
+            return;
+        }
+
+        if ($action === 'admin_add' && $target !== null) {
+            $this->bot->answerCallbackQuery($callbackQueryId);
+            $this->adminFlowHandler->startExerciseCreate($user, $chatId, $messageId, (int) $target);
+
+            return;
+        }
+
+        if ($action === 'admin_toggle' && $target !== null && $tail !== null) {
+            $this->bot->answerCallbackQuery($callbackQueryId);
+            $this->adminFlowHandler->toggleExercise($user, $chatId, $messageId, (int) $target, (int) $tail);
+
+            return;
+        }
+
+        if ($action === 'back') {
+            $this->bot->answerCallbackQuery($callbackQueryId);
+            $this->bot->editMessageText($chatId, $messageId, __('telegram.main_menu_title'), [
+                'reply_markup' => $this->keyboards->mainMenu(),
+            ]);
+
+            return;
+        }
+
+        $this->bot->answerCallbackQuery($callbackQueryId, __('telegram.unknown_action'));
     }
 }

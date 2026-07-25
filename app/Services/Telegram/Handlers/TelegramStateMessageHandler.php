@@ -10,6 +10,7 @@ class TelegramStateMessageHandler
 {
     public function __construct(
         private readonly TemplateFlowHandler $templateFlowHandler,
+        private readonly AdminFlowHandler $adminFlowHandler,
         private readonly WorkoutSetInputHandler $workoutSetInputHandler,
         private readonly GoalsInputHandler $goalsInputHandler,
     ) {
@@ -22,6 +23,7 @@ class TelegramStateMessageHandler
             TelegramState::AwaitingTemplateDayOfWeek->value,
             TelegramState::AwaitingTemplateRename->value,
             TelegramState::AwaitingTemplateMuscleGroups->value => $this->templateFlowHandler->handle($user, $message, $state),
+            TelegramState::AwaitingAdminExerciseName->value => $this->adminFlowHandler->handle($user, $message, $state),
             TelegramState::AwaitingSetWeight->value,
             TelegramState::AwaitingSetRepetitions->value => $this->workoutSetInputHandler->handle($user, $message, $state),
             TelegramState::AwaitingGoalValue->value,

@@ -299,6 +299,103 @@ class TelegramKeyboardFactory
         ];
     }
 
+    public function settingsMenu(bool $isAdmin): array
+    {
+        $keyboard = [];
+
+        if ($isAdmin) {
+            $keyboard[] = [
+                [
+                    'text' => __('telegram.buttons.admin_menu'),
+                    'callback_data' => 'settings:admin',
+                ],
+            ];
+        }
+
+        $keyboard[] = [
+            [
+                'text' => __('telegram.buttons.back'),
+                'callback_data' => 'common:menu',
+            ],
+        ];
+
+        return ['inline_keyboard' => $keyboard];
+    }
+
+    public function adminMenu(array $groups): array
+    {
+        $keyboard = [];
+
+        foreach ($groups as $group) {
+            $keyboard[] = [
+                [
+                    'text' => $group['name'].($group['count'] > 0 ? ' ('.$group['count'].')' : ''),
+                    'callback_data' => 'settings:admin_group:'.$group['id'],
+                ],
+            ];
+        }
+
+        $keyboard[] = [
+            [
+                'text' => __('telegram.buttons.back'),
+                'callback_data' => 'settings:main',
+            ],
+        ];
+
+        return ['inline_keyboard' => $keyboard];
+    }
+
+    public function adminGroupActions(int $groupId, array $exercises): array
+    {
+        $keyboard = [];
+
+        foreach ($exercises as $exercise) {
+            $label = $exercise['name'];
+            $label = ($exercise['is_active'] ? '✅ ' : '⛔ ').$label;
+
+            $keyboard[] = [
+                [
+                    'text' => $label,
+                    'callback_data' => 'settings:admin_toggle:'.$groupId.':'.$exercise['id'],
+                ],
+            ];
+        }
+
+        $keyboard[] = [
+            [
+                'text' => __('telegram.admin.add_exercise'),
+                'callback_data' => 'settings:admin_add:'.$groupId,
+            ],
+        ];
+
+        $keyboard[] = [
+            [
+                'text' => __('telegram.buttons.back'),
+                'callback_data' => 'settings:admin',
+            ],
+        ];
+
+        return ['inline_keyboard' => $keyboard];
+    }
+
+    public function adminExerciseCreateActions(int $groupId): array
+    {
+        return [
+            'inline_keyboard' => [
+                [
+                    [
+                        'text' => __('telegram.buttons.back'),
+                        'callback_data' => 'settings:admin_group:'.$groupId,
+                    ],
+                    [
+                        'text' => __('telegram.buttons.cancel'),
+                        'callback_data' => 'common:cancel',
+                    ],
+                ],
+            ],
+        ];
+    }
+
     public function templateManager(array $templates): array
     {
         $keyboard = [];
