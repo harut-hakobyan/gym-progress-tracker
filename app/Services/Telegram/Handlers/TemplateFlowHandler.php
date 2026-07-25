@@ -764,9 +764,11 @@ class TemplateFlowHandler
             ->all();
 
         $exercises = $this->workouts->availableExercises($user)
-            ->map(fn ($exercise) => [
+            ->map(fn (Exercise $exercise) => [
                 'id' => $exercise->id,
                 'name' => $exercise->name,
+                'media_type' => $exercise->media_type,
+                'media_value' => $exercise->media_value,
             ])
             ->all();
 
@@ -835,7 +837,7 @@ class TemplateFlowHandler
         $lines[] = __('telegram.templates.exercise_count', ['count' => $template->templateExercises->count()]);
 
         foreach ($template->templateExercises as $templateExercise) {
-            $lines[] = __('telegram.templates.exercise_row', ['name' => $templateExercise->exercise->name, 'group' => $templateExercise->exercise->muscleGroup->name]);
+            $lines[] = __('telegram.templates.exercise_row', ['name' => $this->exerciseDisplayName($templateExercise->exercise->name, $templateExercise->exercise->media_type, $templateExercise->exercise->media_value), 'group' => $templateExercise->exercise->muscleGroup->name]);
         }
 
         $this->bot->editMessageText($chatId, $messageId, implode("\n", $lines), [
@@ -913,7 +915,8 @@ class TemplateFlowHandler
             $selectedExerciseNames = Exercise::query()
                 ->whereIn('id', $selectedExerciseIds)
                 ->orderBy('name')
-                ->pluck('name')
+                ->get(['name', 'media_type', 'media_value'])
+                ->map(fn (Exercise $exercise) => $this->exerciseDisplayName($exercise->name, $exercise->media_type, $exercise->media_value))
                 ->all();
 
             if ($selectedExerciseNames !== []) {
@@ -1028,6 +1031,17 @@ class TemplateFlowHandler
             7 => __('telegram.days.sunday'),
             default => __('telegram.templates.day_not_set'),
         };
+    }
+
+    private function exerciseDisplayName(string $name, ?string $mediaType, ?string $mediaValue): string
+    {
+        if ($mediaValue === null || $mediaValue === '') {
+            return $name;
+        }
+
+        $icon = $mediaType === 'animation' ? '🎞' : '🖼';
+
+        return $icon.' '.$name;
     }
 
     private function presetGroupNames(string $preset): array

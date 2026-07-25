@@ -34,22 +34,19 @@ class CallbackQueryHandler
         $data = (string) data_get($callbackQuery, 'data', '');
         $chatId = (int) data_get($callbackQuery, 'message.chat.id');
         $messageId = (int) data_get($callbackQuery, 'message.message_id');
+        $messageIsMedia = $this->isMediaMessage($callbackQuery);
 
         if ($data === 'common:cancel') {
             $this->stateService->forget($user);
             $this->bot->answerCallbackQuery($callbackQueryId, __('telegram.cancelled'));
-            $this->bot->editMessageText($chatId, $messageId, __('telegram.main_menu_title'), [
-                'reply_markup' => $this->keyboards->mainMenu($this->access->isAdmin($user)),
-            ]);
+            $this->showMainMenu($user, $chatId, $messageId, $messageIsMedia);
 
             return;
         }
 
         if ($data === 'common:menu') {
             $this->bot->answerCallbackQuery($callbackQueryId);
-            $this->bot->editMessageText($chatId, $messageId, __('telegram.main_menu_title'), [
-                'reply_markup' => $this->keyboards->mainMenu($this->access->isAdmin($user)),
-            ]);
+            $this->showMainMenu($user, $chatId, $messageId, $messageIsMedia);
 
             return;
         }
@@ -61,10 +58,10 @@ class CallbackQueryHandler
         $tail = $segments[3] ?? null;
 
         match ($scope) {
-            'workout' => $this->handleWorkoutCallbacks($callbackQueryId, $user, $chatId, $messageId, $action, $target),
-            'set' => $this->handleSetCallbacks($callbackQueryId, $user, $chatId, $messageId, $action, $target, $tail),
+            'workout' => $this->handleWorkoutCallbacks($callbackQueryId, $user, $chatId, $messageId, $action, $target, $messageIsMedia),
+            'set' => $this->handleSetCallbacks($callbackQueryId, $user, $chatId, $messageId, $action, $target, $tail, $messageIsMedia),
             'templates' => $this->handleTemplateCallbacks($callbackQueryId, $user, $chatId, $messageId, $action, $target, $tail),
-            'exercise' => $this->handleExerciseCallbacks($callbackQueryId, $user, $chatId, $messageId, $action, $target),
+            'exercise' => $this->handleExerciseCallbacks($callbackQueryId, $user, $chatId, $messageId, $action, $target, $messageIsMedia),
             'goals' => $this->handleGoalsCallbacks($callbackQueryId, $user, $chatId, $messageId, $action, $target),
             'history' => $this->handleHistoryCallbacks($callbackQueryId, $user, $chatId, $messageId, $action, $target),
             'stats' => $this->handleStatsCallbacks($callbackQueryId, $user, $chatId, $messageId, $action),
@@ -75,11 +72,11 @@ class CallbackQueryHandler
         };
     }
 
-    private function handleWorkoutCallbacks(string $callbackQueryId, User $user, int $chatId, int $messageId, string $action, ?string $target): void
+    private function handleWorkoutCallbacks(string $callbackQueryId, User $user, int $chatId, int $messageId, string $action, ?string $target, bool $messageIsMedia): void
     {
         if ($action === 'start') {
             $this->bot->answerCallbackQuery($callbackQueryId);
-            $this->workoutFlowHandler->showTemplates($user, $chatId, $messageId);
+            $this->workoutFlowHandler->showTemplates($user, $chatId, $messageIsMedia ? null : $messageId);
 
             return;
         }
@@ -88,7 +85,7 @@ class CallbackQueryHandler
             $this->bot->answerCallbackQuery($callbackQueryId);
 
             $view = $target === 'standard' ? 'standard' : 'custom';
-            $this->workoutFlowHandler->showTemplates($user, $chatId, $messageId, $view);
+            $this->workoutFlowHandler->showTemplates($user, $chatId, $messageIsMedia ? null : $messageId, $view);
 
             return;
         }
@@ -109,21 +106,21 @@ class CallbackQueryHandler
 
         if ($action === 'exercise') {
             $this->bot->answerCallbackQuery($callbackQueryId);
-            $this->workoutFlowHandler->showExercise($user, $chatId, $messageId, (int) $target);
+            $this->workoutFlowHandler->showExercise($user, $chatId, $messageIsMedia ? null : $messageId, (int) $target);
 
             return;
         }
 
         if ($action === 'complete') {
             $this->bot->answerCallbackQuery($callbackQueryId);
-            $this->workoutFlowHandler->completeWorkout($user, $chatId, $messageId);
+            $this->workoutFlowHandler->completeWorkout($user, $chatId, $messageIsMedia ? null : $messageId);
 
             return;
         }
 
         if ($action === 'back') {
             $this->bot->answerCallbackQuery($callbackQueryId);
-            $this->workoutFlowHandler->backToWorkout($user, $chatId, $messageId);
+            $this->workoutFlowHandler->backToWorkout($user, $chatId, $messageIsMedia ? null : $messageId);
 
             return;
         }
@@ -131,18 +128,18 @@ class CallbackQueryHandler
         $this->bot->answerCallbackQuery($callbackQueryId, __('telegram.unknown_action'));
     }
 
-    private function handleSetCallbacks(string $callbackQueryId, User $user, int $chatId, int $messageId, string $action, ?string $target, ?string $tail): void
+    private function handleSetCallbacks(string $callbackQueryId, User $user, int $chatId, int $messageId, string $action, ?string $target, ?string $tail, bool $messageIsMedia): void
     {
         if ($action === 'add') {
             $this->bot->answerCallbackQuery($callbackQueryId);
-            $this->workoutFlowHandler->beginSetInput($user, $chatId, $messageId, (int) $target, false);
+            $this->workoutFlowHandler->beginSetInput($user, $chatId, $messageIsMedia ? null : $messageId, (int) $target, false);
 
             return;
         }
 
         if ($action === 'repeat') {
             $this->bot->answerCallbackQuery($callbackQueryId);
-            $this->workoutFlowHandler->beginSetInput($user, $chatId, $messageId, (int) $target, true);
+            $this->workoutFlowHandler->beginSetInput($user, $chatId, $messageIsMedia ? null : $messageId, (int) $target, true);
 
             return;
         }
@@ -156,18 +153,18 @@ class CallbackQueryHandler
         $this->templateFlowHandler->handleCallbacks($callbackQueryId, $user, $chatId, $messageId, $action, $target, $tail);
     }
 
-    private function handleExerciseCallbacks(string $callbackQueryId, User $user, int $chatId, int $messageId, string $action, ?string $target): void
+    private function handleExerciseCallbacks(string $callbackQueryId, User $user, int $chatId, int $messageId, string $action, ?string $target, bool $messageIsMedia): void
     {
         if ($action === 'back') {
             $this->bot->answerCallbackQuery($callbackQueryId);
-            $this->workoutFlowHandler->backToWorkout($user, $chatId, $messageId);
+            $this->workoutFlowHandler->backToWorkout($user, $chatId, $messageIsMedia ? null : $messageId);
 
             return;
         }
 
         if ($action === 'progress' && $target !== null) {
             $this->bot->answerCallbackQuery($callbackQueryId);
-            $this->workoutFlowHandler->showExerciseForecast($user, $chatId, $messageId, (int) $target);
+            $this->workoutFlowHandler->showExerciseForecast($user, $chatId, $messageIsMedia ? null : $messageId, (int) $target);
 
             return;
         }
@@ -331,5 +328,31 @@ class CallbackQueryHandler
         }
 
         $this->bot->answerCallbackQuery($callbackQueryId, __('telegram.unknown_action'));
+    }
+
+    private function showMainMenu(User $user, int $chatId, int $messageId, bool $sendAsNewMessage = false): void
+    {
+        $replyMarkup = [
+            'reply_markup' => $this->keyboards->mainMenu($this->access->isAdmin($user)),
+        ];
+
+        if ($sendAsNewMessage) {
+            $this->bot->sendMessage($chatId, __('telegram.main_menu_title'), $replyMarkup);
+
+            return;
+        }
+
+        $this->bot->editMessageText($chatId, $messageId, __('telegram.main_menu_title'), $replyMarkup);
+    }
+
+    private function isMediaMessage(array $callbackQuery): bool
+    {
+        $photo = data_get($callbackQuery, 'message.photo');
+
+        if (is_array($photo) && $photo !== []) {
+            return true;
+        }
+
+        return data_get($callbackQuery, 'message.animation.file_id') !== null;
     }
 }

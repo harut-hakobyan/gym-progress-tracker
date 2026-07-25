@@ -24,7 +24,7 @@ class WorkoutFlowService
     public function activeWorkout(User $user): ?Workout
     {
         return Workout::query()
-            ->with(['workoutExercises.exercise', 'workoutExercises.sets'])
+            ->with(['template.templateExercises.exercise', 'workoutExercises.exercise', 'workoutExercises.sets'])
             ->where('user_id', $user->id)
             ->where('status', WorkoutStatus::Active)
             ->latest('started_at')
@@ -165,6 +165,40 @@ class WorkoutFlowService
             ->where(fn ($query) => $query->whereNull('user_id')->orWhere('user_id', $user->id))
             ->orderBy('name')
             ->get();
+    }
+
+    public function availableExercisesForWorkout(User $user, Workout $workout): Collection
+    {
+        $workout->loadMissing(['template.templateExercises.exercise.muscleGroup']);
+
+        if ($workout->template === null) {
+            return $this->availableExercises($user);
+        }
+
+        return $workout->template->templateExercises
+            ->sortBy('position')
+            ->map(fn ($templateExercise) => $templateExercise->exercise)
+            ->filter(fn ($exercise) => $exercise instanceof Exercise && $exercise->is_active)
+            ->values();
+    }
+
+    public function exerciseForWorkout(User $user, Workout $workout, int $exerciseId): ?Exercise
+    {
+        if ($workout->workout_template_id === null) {
+            return $this->exerciseForUser($user, $exerciseId);
+        }
+
+        $workout->loadMissing(['template.templateExercises.exercise']);
+
+        $exercise = $workout->template?->templateExercises
+            ->pluck('exercise')
+            ->first(fn ($exercise) => $exercise instanceof Exercise && (int) $exercise->id === $exerciseId);
+
+        if ($exercise instanceof Exercise && $exercise->is_active) {
+            return $exercise;
+        }
+
+        return null;
     }
 
     public function exerciseForUser(User $user, int $exerciseId): ?Exercise

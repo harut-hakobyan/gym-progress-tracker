@@ -72,7 +72,7 @@ class WorkoutFlowHandler
         $this->showWorkoutDashboard($user, $chatId, $messageId, $workout, __('telegram.workout.started'));
     }
 
-    public function showWorkoutDashboard(User $user, int $chatId, int $messageId, ?Workout $workout = null, ?string $headline = null): void
+    public function showWorkoutDashboard(User $user, int $chatId, ?int $messageId = null, ?Workout $workout = null, ?string $headline = null): void
     {
         $workout ??= $this->workouts->activeWorkout($user);
 
@@ -82,35 +82,40 @@ class WorkoutFlowHandler
             return;
         }
 
-        $workout->loadMissing(['workoutExercises.exercise', 'workoutExercises.sets']);
+        $workout->loadMissing(['template.templateExercises.exercise', 'workoutExercises.exercise', 'workoutExercises.sets']);
 
-        $exercises = $this->workouts->availableExercises($user)
-            ->map(fn ($exercise) => ['id' => $exercise->id, 'name' => $exercise->name])
+        $exercises = $this->workouts->availableExercisesForWorkout($user, $workout)
+            ->map(fn ($exercise) => [
+                'id' => $exercise->id,
+                'name' => $exercise->name,
+                'media_type' => $exercise->media_type,
+                'media_value' => $exercise->media_value,
+            ])
             ->all();
 
         $text = $this->buildWorkoutDashboardText($workout, $headline);
 
-        $this->bot->editMessageText($chatId, $messageId, $text, [
+        $this->renderWorkoutText($chatId, $messageId, $text, [
             'reply_markup' => $this->keyboards->exerciseSelection($exercises),
         ]);
     }
 
-    public function showExercise(User $user, int $chatId, int $messageId, int $exerciseId): void
+    public function showExercise(User $user, int $chatId, ?int $messageId, int $exerciseId): void
     {
         $workout = $this->workouts->activeWorkout($user);
 
         if ($workout === null) {
-            $this->bot->editMessageText($chatId, $messageId, __('telegram.workout.no_active_workout'), [
+            $this->renderWorkoutText($chatId, $messageId, __('telegram.workout.no_active_workout'), [
                 'reply_markup' => $this->keyboards->mainMenu($this->access->isAdmin($user)),
             ]);
 
             return;
         }
 
-        $exercise = $this->workouts->exerciseForUser($user, $exerciseId);
+        $exercise = $this->workouts->exerciseForWorkout($user, $workout, $exerciseId);
 
         if ($exercise === null) {
-            $this->bot->editMessageText($chatId, $messageId, __('telegram.workout.exercise_not_found'), [
+            $this->renderWorkoutText($chatId, $messageId, __('telegram.workout.exercise_not_found'), [
                 'reply_markup' => $this->keyboards->mainMenu($this->access->isAdmin($user)),
             ]);
 
@@ -126,6 +131,12 @@ class WorkoutFlowHandler
         ];
 
         if ($exercise->media_value !== null && $exercise->media_value !== '') {
+            if ($messageId === null) {
+                $this->bot->sendMessage($chatId, $text, $replyMarkup);
+
+                return;
+            }
+
             $this->bot->editMessageMedia($chatId, $messageId, [
                 'type' => $exercise->media_type === 'animation' ? 'animation' : 'photo',
                 'media' => $exercise->media_value,
@@ -135,15 +146,15 @@ class WorkoutFlowHandler
             return;
         }
 
-        $this->bot->editMessageText($chatId, $messageId, $text, $replyMarkup);
+        $this->renderWorkoutText($chatId, $messageId, $text, $replyMarkup);
     }
 
-    public function showExerciseForecast(User $user, int $chatId, int $messageId, int $exerciseId): void
+    public function showExerciseForecast(User $user, int $chatId, ?int $messageId, int $exerciseId): void
     {
         $exercise = $this->workouts->exerciseForUser($user, $exerciseId);
 
         if ($exercise === null) {
-            $this->bot->editMessageText($chatId, $messageId, __('telegram.workout.exercise_not_found'), [
+            $this->renderWorkoutText($chatId, $messageId, __('telegram.workout.exercise_not_found'), [
                 'reply_markup' => $this->keyboards->mainMenu($this->access->isAdmin($user)),
             ]);
 
@@ -153,7 +164,7 @@ class WorkoutFlowHandler
         $forecast = $this->forecasting->forecast($user, $exercise);
 
         if ($forecast === null) {
-            $this->bot->editMessageText($chatId, $messageId, __('telegram.forecast.insufficient_data', [
+            $this->renderWorkoutText($chatId, $messageId, __('telegram.forecast.insufficient_data', [
                 'exercise' => $exercise->name,
             ]), [
                 'reply_markup' => $this->keyboards->exerciseForecastActions(),
@@ -162,7 +173,7 @@ class WorkoutFlowHandler
             return;
         }
 
-        $this->bot->editMessageText(
+        $this->renderWorkoutText(
             $chatId,
             $messageId,
             $this->buildForecastText($exercise->name, $forecast),
@@ -172,12 +183,12 @@ class WorkoutFlowHandler
         );
     }
 
-    public function beginSetInput(User $user, int $chatId, int $messageId, int $workoutExerciseId, bool $repeat = false): void
+    public function beginSetInput(User $user, int $chatId, ?int $messageId, int $workoutExerciseId, bool $repeat = false): void
     {
         $workoutExercise = $this->workouts->workoutExerciseById($user, $workoutExerciseId);
 
         if ($workoutExercise === null) {
-            $this->bot->editMessageText($chatId, $messageId, __('telegram.workout.exercise_not_found'), [
+            $this->renderWorkoutText($chatId, $messageId, __('telegram.workout.exercise_not_found'), [
                 'reply_markup' => $this->keyboards->mainMenu($this->access->isAdmin($user)),
             ]);
 
@@ -214,17 +225,17 @@ class WorkoutFlowHandler
             ]);
         }
 
-        $this->bot->editMessageText($chatId, $messageId, $prompt, [
+        $this->renderWorkoutText($chatId, $messageId, $prompt, [
             'reply_markup' => $this->keyboards->cancelOnly(),
         ]);
     }
 
-    public function completeWorkout(User $user, int $chatId, int $messageId): void
+    public function completeWorkout(User $user, int $chatId, ?int $messageId): void
     {
         $workout = $this->workouts->activeWorkout($user);
 
         if ($workout === null) {
-            $this->bot->editMessageText($chatId, $messageId, __('telegram.workout.no_active_workout'), [
+            $this->renderWorkoutText($chatId, $messageId, __('telegram.workout.no_active_workout'), [
                 'reply_markup' => $this->keyboards->mainMenu($this->access->isAdmin($user)),
             ]);
 
@@ -240,12 +251,12 @@ class WorkoutFlowHandler
             'volume' => number_format($summary['volume'], 1, '.', ' '),
         ]);
 
-        $this->bot->editMessageText($chatId, $messageId, $text, [
+        $this->renderWorkoutText($chatId, $messageId, $text, [
             'reply_markup' => $this->keyboards->mainMenu($this->access->isAdmin($user)),
         ]);
     }
 
-    public function backToWorkout(User $user, int $chatId, int $messageId): void
+    public function backToWorkout(User $user, int $chatId, ?int $messageId): void
     {
         $workout = $this->workouts->activeWorkout($user);
 
@@ -349,5 +360,16 @@ class WorkoutFlowHandler
         $lines[] = __('telegram.forecast.note');
 
         return implode("\n", $lines);
+    }
+
+    private function renderWorkoutText(int $chatId, ?int $messageId, string $text, array $replyMarkup): void
+    {
+        if ($messageId === null) {
+            $this->bot->sendMessage($chatId, $text, $replyMarkup);
+
+            return;
+        }
+
+        $this->bot->editMessageText($chatId, $messageId, $text, $replyMarkup);
     }
 }

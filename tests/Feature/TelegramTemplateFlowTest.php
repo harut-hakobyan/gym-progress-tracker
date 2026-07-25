@@ -522,4 +522,69 @@ class TelegramTemplateFlowTest extends TestCase
             'id' => $templateExercise->id,
         ]);
     }
+
+    public function test_template_view_shows_small_media_marker_for_exercise_with_media(): void
+    {
+        Http::fake([
+            'api.telegram.org/*' => Http::response(['ok' => true, 'result' => []], 200),
+        ]);
+
+        $this->seed();
+
+        $user = User::factory()->create([
+            'telegram_id' => 880012,
+            'email' => null,
+        ]);
+
+        $template = WorkoutTemplate::factory()->forUser($user)->create([
+            'name' => 'Media template',
+            'description' => null,
+            'is_active' => true,
+        ]);
+
+        $exercise = Exercise::query()->where('is_active', true)->firstOrFail();
+        $exercise->update([
+            'media_type' => 'animation',
+            'media_value' => 'gif-file-123',
+        ]);
+
+        WorkoutTemplateExercise::query()->create([
+            'workout_template_id' => $template->id,
+            'exercise_id' => $exercise->id,
+            'position' => 1,
+            'target_sets' => 3,
+            'target_repetitions_min' => 6,
+            'target_repetitions_max' => 10,
+            'target_weight' => null,
+            'rest_seconds' => 90,
+            'notes' => null,
+        ]);
+
+        $telegramId = 880012;
+
+        $this->postJson('/api/telegram/webhook/test-secret', [
+            'update_id' => 6201,
+            'callback_query' => [
+                'id' => 'cb-1',
+                'from' => [
+                    'id' => $telegramId,
+                    'first_name' => 'Harut',
+                    'username' => 'harut',
+                ],
+                'message' => [
+                    'message_id' => 10,
+                    'chat' => [
+                        'id' => $telegramId,
+                        'type' => 'private',
+                    ],
+                ],
+                'data' => 'templates:view:'.$template->id,
+            ],
+        ])->assertOk();
+
+        Http::assertSent(function ($request): bool {
+            return str_contains($request->url(), 'editMessageText')
+                && str_contains((string) ($request['text'] ?? ''), '🎞');
+        });
+    }
 }

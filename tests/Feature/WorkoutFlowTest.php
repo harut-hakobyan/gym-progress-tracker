@@ -4,7 +4,9 @@ namespace Tests\Feature;
 
 use App\Enums\WorkoutStatus;
 use App\Models\Exercise;
+use App\Models\User;
 use App\Models\WorkoutTemplate;
+use App\Models\WorkoutTemplateExercise;
 use App\Models\Workout;
 use App\Models\WorkoutExercise;
 use App\Models\WorkoutSet;
@@ -426,6 +428,69 @@ class WorkoutFlowTest extends TestCase
                 && str_contains((string) $request['text'], 'Стандартные шаблоны')
                 && str_contains((string) $request['reply_markup'], 'Full Body')
                 && str_contains((string) $request['reply_markup'], 'workout:templates:custom');
+        });
+    }
+
+    public function test_workout_dashboard_shows_only_template_exercises_when_template_is_selected(): void
+    {
+        Http::fake([
+            'api.telegram.org/*' => Http::response(['ok' => true, 'result' => []], 200),
+        ]);
+
+        $this->seed();
+
+        $telegramId = 880004;
+        $user = User::factory()->create([
+            'telegram_id' => $telegramId,
+            'email' => null,
+        ]);
+
+        $exercise = Exercise::query()->where('name', 'Жим штанги лёжа')->firstOrFail();
+        $otherExercise = Exercise::query()->where('name', 'Подтягивания')->firstOrFail();
+
+        $template = WorkoutTemplate::factory()->forUser($user)->create([
+            'name' => 'Push only',
+            'is_active' => true,
+        ]);
+
+        WorkoutTemplateExercise::query()->create([
+            'workout_template_id' => $template->id,
+            'exercise_id' => $exercise->id,
+            'position' => 1,
+            'target_sets' => 3,
+            'target_repetitions_min' => 6,
+            'target_repetitions_max' => 10,
+            'target_weight' => null,
+            'rest_seconds' => 90,
+            'notes' => null,
+        ]);
+
+        $this->postJson('/api/telegram/webhook/test-secret', [
+            'update_id' => 4012,
+            'callback_query' => [
+                'id' => 'cb-2',
+                'from' => [
+                    'id' => $telegramId,
+                    'first_name' => 'Harut',
+                    'username' => 'harut',
+                ],
+                'message' => [
+                    'message_id' => 10,
+                    'chat' => [
+                        'id' => $telegramId,
+                        'type' => 'private',
+                    ],
+                ],
+                'data' => 'workout:template:'.$template->id,
+            ],
+        ])->assertOk();
+
+        Http::assertSent(function ($request) use ($exercise, $otherExercise): bool {
+            $replyMarkup = (string) ($request['reply_markup'] ?? '');
+
+            return str_contains($request->url(), 'editMessageText')
+                && str_contains($replyMarkup, $exercise->name)
+                && ! str_contains($replyMarkup, $otherExercise->name);
         });
     }
 }

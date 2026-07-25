@@ -230,4 +230,90 @@ class TelegramExerciseMediaTest extends TestCase
                 && str_contains((string) $request['media'], 'animation');
         });
     }
+
+    public function test_user_can_go_back_from_media_exercise_screen(): void
+    {
+        Http::fake([
+            'api.telegram.org/*' => Http::response(['ok' => true, 'result' => []], 200),
+        ]);
+
+        $this->seed();
+
+        $telegramId = 991003;
+        $user = User::factory()->create([
+            'telegram_id' => $telegramId,
+            'email' => null,
+        ]);
+
+        $exercise = Exercise::query()->where('is_active', true)->firstOrFail();
+        $exercise->update([
+            'media_type' => 'photo',
+            'media_value' => 'photo-file-xyz',
+        ]);
+
+        Workout::query()->create([
+            'user_id' => $user->id,
+            'workout_template_id' => null,
+            'name' => 'Workout',
+            'status' => WorkoutStatus::Active,
+            'started_at' => now(),
+            'completed_at' => null,
+            'duration_seconds' => null,
+            'user_body_weight' => null,
+            'notes' => null,
+        ]);
+
+        $this->postJson('/api/telegram/webhook/test-secret', [
+            'update_id' => 8301,
+            'callback_query' => [
+                'id' => 'cb-1',
+                'from' => [
+                    'id' => $telegramId,
+                    'first_name' => 'User',
+                    'username' => 'user',
+                ],
+                'message' => [
+                    'message_id' => 10,
+                    'chat' => [
+                        'id' => $telegramId,
+                        'type' => 'private',
+                    ],
+                ],
+                'data' => 'workout:exercise:'.$exercise->id,
+            ],
+        ])->assertOk();
+
+        $this->postJson('/api/telegram/webhook/test-secret', [
+            'update_id' => 8302,
+            'callback_query' => [
+                'id' => 'cb-2',
+                'from' => [
+                    'id' => $telegramId,
+                    'first_name' => 'User',
+                    'username' => 'user',
+                ],
+                'message' => [
+                    'message_id' => 10,
+                    'chat' => [
+                        'id' => $telegramId,
+                        'type' => 'private',
+                    ],
+                    'photo' => [
+                        [
+                            'file_id' => 'small-photo',
+                            'file_unique_id' => 'small-photo-unique',
+                            'width' => 100,
+                            'height' => 100,
+                        ],
+                    ],
+                ],
+                'data' => 'exercise:back:current',
+            ],
+        ])->assertOk();
+
+        Http::assertSent(function ($request): bool {
+            return str_contains($request->url(), 'sendMessage')
+                && str_contains((string) $request['text'], 'Активная тренировка');
+        });
+    }
 }
