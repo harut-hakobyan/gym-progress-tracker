@@ -3,6 +3,7 @@
 namespace App\Services\Telegram\Handlers;
 
 use App\Models\User;
+use App\Services\Telegram\TelegramAccessService;
 use App\Services\Telegram\TelegramBotService;
 use App\Services\Telegram\TelegramKeyboardFactory;
 use App\Services\Telegram\TelegramStateService;
@@ -13,6 +14,7 @@ class CommandHandler
         private readonly TelegramBotService $bot,
         private readonly TelegramKeyboardFactory $keyboards,
         private readonly TelegramStateService $stateService,
+        private readonly TelegramAccessService $access,
         private readonly StartCommandHandler $startCommandHandler,
         private readonly AdminFlowHandler $adminFlowHandler,
         private readonly WorkoutFlowHandler $workoutFlowHandler,
@@ -30,7 +32,7 @@ class CommandHandler
 
         match ($command) {
             '/start' => $this->startCommandHandler->handle($user, $chatId),
-            '/menu' => $this->showMainMenu($chatId),
+            '/menu' => $this->showMainMenu($user, $chatId),
             '/workout' => $this->workoutFlowHandler->showTemplates($user, $chatId),
             '/history' => $this->historyHandler->showHistory($user, $chatId),
             '/stats' => $this->statisticsHandler->showSummary($user, $chatId),
@@ -64,12 +66,12 @@ class CommandHandler
         return $command;
     }
 
-    private function showMainMenu(int $chatId): void
+    private function showMainMenu(User $user, int $chatId): void
     {
         $this->bot->sendMessage(
             $chatId,
             __('telegram.main_menu_title'),
-            ['reply_markup' => $this->keyboards->mainMenu()]
+            ['reply_markup' => $this->keyboards->mainMenu($this->access->isAdmin($user))]
         );
     }
 
@@ -78,7 +80,7 @@ class CommandHandler
         $this->stateService->forget($user);
 
         $this->bot->sendMessage($chatId, __('telegram.cancelled'), [
-            'reply_markup' => $this->keyboards->mainMenu(),
+            'reply_markup' => $this->keyboards->mainMenu($this->access->isAdmin($user)),
         ]);
     }
 

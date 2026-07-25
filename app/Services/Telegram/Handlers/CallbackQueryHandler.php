@@ -3,6 +3,7 @@
 namespace App\Services\Telegram\Handlers;
 
 use App\Models\User;
+use App\Services\Telegram\TelegramAccessService;
 use App\Services\Telegram\TelegramBotService;
 use App\Services\Telegram\TelegramKeyboardFactory;
 use App\Services\Telegram\TelegramStateService;
@@ -15,6 +16,7 @@ class CallbackQueryHandler
         private readonly TelegramBotService $bot,
         private readonly TelegramKeyboardFactory $keyboards,
         private readonly TelegramStateService $stateService,
+        private readonly TelegramAccessService $access,
         private readonly TemplateFlowHandler $templateFlowHandler,
         private readonly AdminFlowHandler $adminFlowHandler,
         private readonly WorkoutFlowHandler $workoutFlowHandler,
@@ -37,7 +39,7 @@ class CallbackQueryHandler
             $this->stateService->forget($user);
             $this->bot->answerCallbackQuery($callbackQueryId, __('telegram.cancelled'));
             $this->bot->editMessageText($chatId, $messageId, __('telegram.main_menu_title'), [
-                'reply_markup' => $this->keyboards->mainMenu(),
+                'reply_markup' => $this->keyboards->mainMenu($this->access->isAdmin($user)),
             ]);
 
             return;
@@ -46,7 +48,7 @@ class CallbackQueryHandler
         if ($data === 'common:menu') {
             $this->bot->answerCallbackQuery($callbackQueryId);
             $this->bot->editMessageText($chatId, $messageId, __('telegram.main_menu_title'), [
-                'reply_markup' => $this->keyboards->mainMenu(),
+                'reply_markup' => $this->keyboards->mainMenu($this->access->isAdmin($user)),
             ]);
 
             return;
@@ -67,6 +69,7 @@ class CallbackQueryHandler
             'history' => $this->handleHistoryCallbacks($callbackQueryId, $user, $chatId, $messageId, $action, $target),
             'stats' => $this->handleStatsCallbacks($callbackQueryId, $user, $chatId, $messageId, $action),
             'records' => $this->handleRecordsCallbacks($callbackQueryId, $user, $chatId, $messageId, $action),
+            'admin' => $this->handleAdminCallbacks($callbackQueryId, $user, $chatId, $messageId, $action, $target, $tail),
             'settings' => $this->handleSettingsCallbacks($callbackQueryId, $user, $chatId, $messageId, $action, $target, $tail),
             default => $this->bot->answerCallbackQuery($callbackQueryId, __('telegram.unknown_action')),
         };
@@ -258,39 +261,57 @@ class CallbackQueryHandler
             return;
         }
 
-        if ($action === 'admin') {
+        if ($action === 'back') {
+            $this->bot->answerCallbackQuery($callbackQueryId);
+            $this->bot->editMessageText($chatId, $messageId, __('telegram.main_menu_title'), [
+                'reply_markup' => $this->keyboards->mainMenu($this->access->isAdmin($user)),
+            ]);
+
+            return;
+        }
+
+        $this->bot->answerCallbackQuery($callbackQueryId, __('telegram.unknown_action'));
+    }
+
+    private function handleAdminCallbacks(string $callbackQueryId, User $user, int $chatId, int $messageId, string $action, ?string $target, ?string $tail): void
+    {
+        if (! $this->access->isAdmin($user)) {
+            $this->bot->answerCallbackQuery($callbackQueryId, __('telegram.admin.no_access'));
+
+            return;
+        }
+
+        if ($action === 'menu') {
             $this->bot->answerCallbackQuery($callbackQueryId);
             $this->adminFlowHandler->showAdminMenu($user, $chatId, $messageId);
 
             return;
         }
 
-        if ($action === 'admin_group' && $target !== null) {
+        if ($action === 'groups') {
+            $this->bot->answerCallbackQuery($callbackQueryId);
+            $this->adminFlowHandler->showAdminGroupsMenu($user, $chatId, $messageId);
+
+            return;
+        }
+
+        if ($action === 'group' && $target !== null) {
             $this->bot->answerCallbackQuery($callbackQueryId);
             $this->adminFlowHandler->showGroup($user, $chatId, $messageId, (int) $target);
 
             return;
         }
 
-        if ($action === 'admin_add' && $target !== null) {
+        if ($action === 'add' && $target !== null) {
             $this->bot->answerCallbackQuery($callbackQueryId);
             $this->adminFlowHandler->startExerciseCreate($user, $chatId, $messageId, (int) $target);
 
             return;
         }
 
-        if ($action === 'admin_toggle' && $target !== null && $tail !== null) {
+        if ($action === 'toggle' && $target !== null && $tail !== null) {
             $this->bot->answerCallbackQuery($callbackQueryId);
             $this->adminFlowHandler->toggleExercise($user, $chatId, $messageId, (int) $target, (int) $tail);
-
-            return;
-        }
-
-        if ($action === 'back') {
-            $this->bot->answerCallbackQuery($callbackQueryId);
-            $this->bot->editMessageText($chatId, $messageId, __('telegram.main_menu_title'), [
-                'reply_markup' => $this->keyboards->mainMenu(),
-            ]);
 
             return;
         }

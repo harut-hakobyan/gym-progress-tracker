@@ -8,6 +8,7 @@ use App\Models\Workout;
 use App\Models\WorkoutExercise;
 use App\Services\Forecasting\ExerciseProgressForecastService;
 use App\Services\Telegram\Handlers\WorkoutSetInputHandler;
+use App\Services\Telegram\TelegramAccessService;
 use App\Services\Telegram\TelegramBotService;
 use App\Services\Telegram\TelegramKeyboardFactory;
 use App\Services\Telegram\TelegramStateService;
@@ -24,6 +25,7 @@ class WorkoutFlowHandler
         private readonly TelegramBotService $bot,
         private readonly TelegramKeyboardFactory $keyboards,
         private readonly TelegramStateService $stateService,
+        private readonly TelegramAccessService $access,
     ) {
     }
 
@@ -99,7 +101,7 @@ class WorkoutFlowHandler
 
         if ($workout === null) {
             $this->bot->editMessageText($chatId, $messageId, __('telegram.workout.no_active_workout'), [
-                'reply_markup' => $this->keyboards->mainMenu(),
+                'reply_markup' => $this->keyboards->mainMenu($this->access->isAdmin($user)),
             ]);
 
             return;
@@ -109,7 +111,7 @@ class WorkoutFlowHandler
 
         if ($exercise === null) {
             $this->bot->editMessageText($chatId, $messageId, __('telegram.workout.exercise_not_found'), [
-                'reply_markup' => $this->keyboards->mainMenu(),
+                'reply_markup' => $this->keyboards->mainMenu($this->access->isAdmin($user)),
             ]);
 
             return;
@@ -131,7 +133,7 @@ class WorkoutFlowHandler
 
         if ($exercise === null) {
             $this->bot->editMessageText($chatId, $messageId, __('telegram.workout.exercise_not_found'), [
-                'reply_markup' => $this->keyboards->mainMenu(),
+                'reply_markup' => $this->keyboards->mainMenu($this->access->isAdmin($user)),
             ]);
 
             return;
@@ -165,7 +167,7 @@ class WorkoutFlowHandler
 
         if ($workoutExercise === null) {
             $this->bot->editMessageText($chatId, $messageId, __('telegram.workout.exercise_not_found'), [
-                'reply_markup' => $this->keyboards->mainMenu(),
+                'reply_markup' => $this->keyboards->mainMenu($this->access->isAdmin($user)),
             ]);
 
             return;
@@ -212,7 +214,7 @@ class WorkoutFlowHandler
 
         if ($workout === null) {
             $this->bot->editMessageText($chatId, $messageId, __('telegram.workout.no_active_workout'), [
-                'reply_markup' => $this->keyboards->mainMenu(),
+                'reply_markup' => $this->keyboards->mainMenu($this->access->isAdmin($user)),
             ]);
 
             return;
@@ -228,7 +230,7 @@ class WorkoutFlowHandler
         ]);
 
         $this->bot->editMessageText($chatId, $messageId, $text, [
-            'reply_markup' => $this->keyboards->mainMenu(),
+            'reply_markup' => $this->keyboards->mainMenu($this->access->isAdmin($user)),
         ]);
     }
 

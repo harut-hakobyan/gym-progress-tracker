@@ -26,14 +26,9 @@ class AdminFlowHandler
     public function showSettingsMenu(User $user, int $chatId, ?int $messageId = null): void
     {
         $text = __('telegram.settings.title');
+        $text .= "\n\n".__('telegram.settings.basic');
 
-        if ($this->access->isAdmin($user)) {
-            $text .= "\n\n".__('telegram.settings.admin_available');
-        } else {
-            $text .= "\n\n".__('telegram.settings.basic');
-        }
-
-        $replyMarkup = ['reply_markup' => $this->keyboards->settingsMenu($this->access->isAdmin($user))];
+        $replyMarkup = ['reply_markup' => $this->keyboards->settingsMenu()];
 
         if ($messageId === null) {
             $this->bot->sendMessage($chatId, $text, $replyMarkup);
@@ -98,7 +93,24 @@ class AdminFlowHandler
     {
         if (! $this->access->isAdmin($user)) {
             $this->bot->editMessageText($chatId, $messageId, __('telegram.admin.no_access'), [
-                'reply_markup' => $this->keyboards->settingsMenu(false),
+                'reply_markup' => $this->keyboards->settingsMenu(),
+            ]);
+
+            return;
+        }
+
+        $text = __('telegram.admin.home_title')."\n\n".__('telegram.admin.home_hint');
+
+        $this->bot->editMessageText($chatId, $messageId, $text, [
+            'reply_markup' => $this->keyboards->adminMenu(),
+        ]);
+    }
+
+    public function showAdminGroupsMenu(User $user, int $chatId, int $messageId): void
+    {
+        if (! $this->access->isAdmin($user)) {
+            $this->bot->editMessageText($chatId, $messageId, __('telegram.admin.no_access'), [
+                'reply_markup' => $this->keyboards->settingsMenu(),
             ]);
 
             return;
@@ -115,10 +127,10 @@ class AdminFlowHandler
             ])
             ->all();
 
-        $text = __('telegram.admin.menu_title')."\n\n".__('telegram.admin.menu_hint');
+        $text = __('telegram.admin.groups_title')."\n\n".__('telegram.admin.groups_hint');
 
         $this->bot->editMessageText($chatId, $messageId, $text, [
-            'reply_markup' => $this->keyboards->adminMenu($groups),
+            'reply_markup' => $this->keyboards->adminGroupsMenu($groups),
         ]);
     }
 
@@ -126,7 +138,7 @@ class AdminFlowHandler
     {
         if (! $this->access->isAdmin($user)) {
             $this->bot->editMessageText($chatId, $messageId, __('telegram.admin.no_access'), [
-                'reply_markup' => $this->keyboards->settingsMenu(false),
+                'reply_markup' => $this->keyboards->settingsMenu(),
             ]);
 
             return;
@@ -136,7 +148,7 @@ class AdminFlowHandler
 
         if ($group === null) {
             $this->bot->editMessageText($chatId, $messageId, __('telegram.admin.group_not_found'), [
-                'reply_markup' => $this->keyboards->adminMenu([]),
+                'reply_markup' => $this->keyboards->adminGroupsMenu([]),
             ]);
 
             return;
@@ -175,7 +187,7 @@ class AdminFlowHandler
 
         if ($group === null) {
             $this->bot->editMessageText($chatId, $messageId, __('telegram.admin.group_not_found'), [
-                'reply_markup' => $this->keyboards->adminMenu([]),
+                'reply_markup' => $this->keyboards->adminGroupsMenu([]),
             ]);
 
             return;
@@ -202,7 +214,7 @@ class AdminFlowHandler
 
         if ($group === null || $exercise === null || (int) $exercise->muscle_group_id !== $group->id) {
             $this->bot->editMessageText($chatId, $messageId, __('telegram.admin.group_not_found'), [
-                'reply_markup' => $this->keyboards->adminMenu([]),
+                'reply_markup' => $this->keyboards->adminGroupsMenu([]),
             ]);
 
             return;

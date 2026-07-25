@@ -4,6 +4,7 @@ namespace App\Services\Telegram\Handlers;
 
 use App\Models\User;
 use App\Services\Statistics\StatisticsService;
+use App\Services\Telegram\TelegramAccessService;
 use App\Services\Telegram\TelegramBotService;
 use App\Services\Telegram\TelegramKeyboardFactory;
 
@@ -13,6 +14,7 @@ class StatisticsHandler
         private readonly StatisticsService $statistics,
         private readonly TelegramBotService $bot,
         private readonly TelegramKeyboardFactory $keyboards,
+        private readonly TelegramAccessService $access,
     ) {
     }
 
@@ -41,12 +43,12 @@ class StatisticsHandler
             $this->formatTopItems($summary['muscle_groups']),
         ]);
 
-        $this->send($chatId, $messageId, $text);
+        $this->send($user, $chatId, $messageId, $text);
     }
 
-    private function send(int $chatId, ?int $messageId, string $text): void
+    private function send(User $user, int $chatId, ?int $messageId, string $text): void
     {
-        $markup = ['reply_markup' => $this->keyboards->mainMenu()];
+        $markup = ['reply_markup' => $this->keyboards->mainMenu($this->access->isAdmin($user))];
 
         if ($messageId !== null) {
             $this->bot->editMessageText($chatId, $messageId, $text, $markup);

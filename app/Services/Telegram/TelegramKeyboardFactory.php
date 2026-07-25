@@ -4,9 +4,9 @@ namespace App\Services\Telegram;
 
 class TelegramKeyboardFactory
 {
-    public function mainMenu(): array
+    public function mainMenu(bool $isAdmin = false): array
     {
-        return [
+        $keyboard = [
             'inline_keyboard' => [
                 [
                     ['text' => __('telegram.buttons.start_workout'), 'callback_data' => 'workout:start'],
@@ -25,6 +25,14 @@ class TelegramKeyboardFactory
                 ],
             ],
         ];
+
+        if ($isAdmin) {
+            $keyboard['inline_keyboard'][] = [
+                ['text' => __('telegram.buttons.admin_menu'), 'callback_data' => 'admin:menu'],
+            ];
+        }
+
+        return $keyboard;
     }
 
     public function cancelOnly(): array
@@ -299,30 +307,41 @@ class TelegramKeyboardFactory
         ];
     }
 
-    public function settingsMenu(bool $isAdmin): array
+    public function settingsMenu(): array
     {
-        $keyboard = [];
-
-        if ($isAdmin) {
-            $keyboard[] = [
+        return [
+            'inline_keyboard' => [
                 [
-                    'text' => __('telegram.buttons.admin_menu'),
-                    'callback_data' => 'settings:admin',
+                    [
+                        'text' => __('telegram.buttons.back'),
+                        'callback_data' => 'common:menu',
+                    ],
                 ],
-            ];
-        }
-
-        $keyboard[] = [
-            [
-                'text' => __('telegram.buttons.back'),
-                'callback_data' => 'common:menu',
             ],
         ];
-
-        return ['inline_keyboard' => $keyboard];
     }
 
-    public function adminMenu(array $groups): array
+    public function adminMenu(): array
+    {
+        return [
+            'inline_keyboard' => [
+                [
+                    [
+                        'text' => __('telegram.buttons.admin_groups'),
+                        'callback_data' => 'admin:groups',
+                    ],
+                ],
+                [
+                    [
+                        'text' => __('telegram.buttons.back'),
+                        'callback_data' => 'common:menu',
+                    ],
+                ],
+            ],
+        ];
+    }
+
+    public function adminGroupsMenu(array $groups): array
     {
         $keyboard = [];
 
@@ -330,7 +349,7 @@ class TelegramKeyboardFactory
             $keyboard[] = [
                 [
                     'text' => $group['name'].($group['count'] > 0 ? ' ('.$group['count'].')' : ''),
-                    'callback_data' => 'settings:admin_group:'.$group['id'],
+                    'callback_data' => 'admin:group:'.$group['id'],
                 ],
             ];
         }
@@ -338,7 +357,7 @@ class TelegramKeyboardFactory
         $keyboard[] = [
             [
                 'text' => __('telegram.buttons.back'),
-                'callback_data' => 'settings:main',
+                'callback_data' => 'admin:menu',
             ],
         ];
 
@@ -356,7 +375,7 @@ class TelegramKeyboardFactory
             $keyboard[] = [
                 [
                     'text' => $label,
-                    'callback_data' => 'settings:admin_toggle:'.$groupId.':'.$exercise['id'],
+                    'callback_data' => 'admin:toggle:'.$groupId.':'.$exercise['id'],
                 ],
             ];
         }
@@ -364,14 +383,14 @@ class TelegramKeyboardFactory
         $keyboard[] = [
             [
                 'text' => __('telegram.admin.add_exercise'),
-                'callback_data' => 'settings:admin_add:'.$groupId,
+                'callback_data' => 'admin:add:'.$groupId,
             ],
         ];
 
         $keyboard[] = [
             [
                 'text' => __('telegram.buttons.back'),
-                'callback_data' => 'settings:admin',
+                'callback_data' => 'admin:groups',
             ],
         ];
 
@@ -385,7 +404,7 @@ class TelegramKeyboardFactory
                 [
                     [
                         'text' => __('telegram.buttons.back'),
-                        'callback_data' => 'settings:admin_group:'.$groupId,
+                        'callback_data' => 'admin:group:'.$groupId,
                     ],
                     [
                         'text' => __('telegram.buttons.cancel'),

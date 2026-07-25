@@ -24,12 +24,16 @@ class TelegramAdminMenuTest extends TestCase
         $adminTelegramId = 990001;
         config(['telegram.admin_ids' => [$adminTelegramId]]);
 
-        $user = User::factory()->create([
+        User::factory()->create([
             'telegram_id' => $adminTelegramId,
             'email' => null,
         ]);
 
-        $group = MuscleGroup::query()->where('name', 'Грудь')->firstOrFail();
+        $group = MuscleGroup::query()
+            ->whereHas('exercises')
+            ->orderBy('name')
+            ->firstOrFail();
+
         $exercise = Exercise::query()
             ->where('muscle_group_id', $group->id)
             ->where('is_active', true)
@@ -71,7 +75,7 @@ class TelegramAdminMenuTest extends TestCase
                         'type' => 'private',
                     ],
                 ],
-                'data' => 'settings:admin',
+                'data' => 'admin:menu',
             ],
         ])->assertOk();
 
@@ -91,7 +95,7 @@ class TelegramAdminMenuTest extends TestCase
                         'type' => 'private',
                     ],
                 ],
-                'data' => 'settings:admin_group:'.$group->id,
+                'data' => 'admin:groups',
             ],
         ])->assertOk();
 
@@ -111,12 +115,32 @@ class TelegramAdminMenuTest extends TestCase
                         'type' => 'private',
                     ],
                 ],
-                'data' => 'settings:admin_add:'.$group->id,
+                'data' => 'admin:group:'.$group->id,
             ],
         ])->assertOk();
 
         $this->postJson('/api/telegram/webhook/test-secret', [
             'update_id' => 7005,
+            'callback_query' => [
+                'id' => 'cb-5',
+                'from' => [
+                    'id' => $adminTelegramId,
+                    'first_name' => 'Admin',
+                    'username' => 'admin',
+                ],
+                'message' => [
+                    'message_id' => 10,
+                    'chat' => [
+                        'id' => $adminTelegramId,
+                        'type' => 'private',
+                    ],
+                ],
+                'data' => 'admin:add:'.$group->id,
+            ],
+        ])->assertOk();
+
+        $this->postJson('/api/telegram/webhook/test-secret', [
+            'update_id' => 7006,
             'message' => [
                 'message_id' => 11,
                 'from' => [
@@ -141,9 +165,9 @@ class TelegramAdminMenuTest extends TestCase
         ]);
 
         $this->postJson('/api/telegram/webhook/test-secret', [
-            'update_id' => 7006,
+            'update_id' => 7007,
             'callback_query' => [
-                'id' => 'cb-5',
+                'id' => 'cb-6',
                 'from' => [
                     'id' => $adminTelegramId,
                     'first_name' => 'Admin',
@@ -156,7 +180,7 @@ class TelegramAdminMenuTest extends TestCase
                         'type' => 'private',
                     ],
                 ],
-                'data' => 'settings:admin_toggle:'.$group->id.':'.$exercise->id,
+                'data' => 'admin:toggle:'.$group->id.':'.$exercise->id,
             ],
         ])->assertOk();
 
