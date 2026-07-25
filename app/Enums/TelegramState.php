@@ -13,6 +13,7 @@ enum TelegramState: string
     case AwaitingTemplateRename = 'awaiting_template_rename';
     case AwaitingTemplateDescription = 'awaiting_template_description';
     case AwaitingTemplateMuscleGroups = 'awaiting_template_muscle_groups';
+    case AwaitingTemplateExercises = 'awaiting_template_exercises';
     case AwaitingGoalType = 'awaiting_goal_type';
     case AwaitingGoalValue = 'awaiting_goal_value';
     case AwaitingGoalDate = 'awaiting_goal_date';

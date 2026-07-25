@@ -439,6 +439,44 @@ class TelegramKeyboardFactory
         return ['inline_keyboard' => $keyboard];
     }
 
+    public function templateCreationExerciseSelection(array $exercises, array $selectedExerciseIds): array
+    {
+        $keyboard = [];
+        $selected = array_map('intval', $selectedExerciseIds);
+        $row = [];
+
+        foreach ($exercises as $exercise) {
+            $isSelected = in_array((int) $exercise['id'], $selected, true);
+
+            $row[] = [
+                'text' => ($isSelected ? __('telegram.templates.selected_mark').' ' : '').$exercise['name'],
+                'callback_data' => 'templates:create_exercise:'.$exercise['id'],
+            ];
+
+            if (count($row) === 2) {
+                $keyboard[] = $row;
+                $row = [];
+            }
+        }
+
+        if ($row !== []) {
+            $keyboard[] = $row;
+        }
+
+        $keyboard[] = [
+            [
+                'text' => __('telegram.templates.back_to_groups'),
+                'callback_data' => 'templates:back',
+            ],
+            [
+                'text' => __('telegram.templates.done'),
+                'callback_data' => 'templates:done',
+            ],
+        ];
+
+        return ['inline_keyboard' => $keyboard];
+    }
+
     public function templateDeleteConfirmActions(int $templateId): array
     {
         return [

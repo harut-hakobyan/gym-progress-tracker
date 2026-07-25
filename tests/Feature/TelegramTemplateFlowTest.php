@@ -15,7 +15,7 @@ class TelegramTemplateFlowTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_user_can_create_template_from_muscle_group_split(): void
+    public function test_user_can_create_template_by_selecting_groups_then_exercises(): void
     {
         Http::fake([
             'api.telegram.org/*' => Http::response(['ok' => true, 'result' => []], 200),
@@ -161,6 +161,59 @@ class TelegramTemplateFlowTest extends TestCase
             ],
         ])->assertOk();
 
+        $chest = MuscleGroup::query()->where('name', 'Грудь')->firstOrFail();
+        $triceps = MuscleGroup::query()->where('name', 'Трицепс')->firstOrFail();
+        $selectedExercises = Exercise::query()
+            ->whereIn('muscle_group_id', [$chest->id, $triceps->id])
+            ->orderBy('name')
+            ->limit(2)
+            ->pluck('id')
+            ->all();
+
+        $this->assertNotEmpty($selectedExercises);
+
+        foreach ($selectedExercises as $index => $exerciseId) {
+            $this->postJson('/api/telegram/webhook/test-secret', [
+                'update_id' => 5008 + $index,
+                'callback_query' => [
+                    'id' => 'cb-6'.$index,
+                    'from' => [
+                        'id' => $telegramId,
+                        'first_name' => 'Harut',
+                        'username' => 'harut',
+                    ],
+                    'message' => [
+                        'message_id' => 10,
+                        'chat' => [
+                            'id' => $telegramId,
+                            'type' => 'private',
+                        ],
+                    ],
+                    'data' => 'templates:create_exercise:'.$exerciseId,
+                ],
+            ])->assertOk();
+        }
+
+        $this->postJson('/api/telegram/webhook/test-secret', [
+            'update_id' => 5010,
+            'callback_query' => [
+                'id' => 'cb-7',
+                'from' => [
+                    'id' => $telegramId,
+                    'first_name' => 'Harut',
+                    'username' => 'harut',
+                ],
+                'message' => [
+                    'message_id' => 10,
+                    'chat' => [
+                        'id' => $telegramId,
+                        'type' => 'private',
+                    ],
+                ],
+                'data' => 'templates:done',
+            ],
+        ])->assertOk();
+
         $user = User::query()->where('telegram_id', $telegramId)->firstOrFail();
         $template = WorkoutTemplate::query()
             ->where('user_id', $user->id)
@@ -168,17 +221,10 @@ class TelegramTemplateFlowTest extends TestCase
             ->with('templateExercises')
             ->firstOrFail();
 
-        $chest = MuscleGroup::query()->where('name', 'Грудь')->firstOrFail();
-        $triceps = MuscleGroup::query()->where('name', 'Трицепс')->firstOrFail();
-        $expectedExercises = Exercise::query()
-            ->whereIn('muscle_group_id', [$chest->id, $triceps->id])
-            ->pluck('id')
-            ->all();
-
-        $this->assertCount(4, $template->templateExercises);
+        $this->assertCount(count($selectedExercises), $template->templateExercises);
         $this->assertSame(1, $template->day_of_week);
 
-        foreach ($expectedExercises as $exerciseId) {
+        foreach ($selectedExercises as $exerciseId) {
             $this->assertDatabaseHas('workout_template_exercises', [
                 'workout_template_id' => $template->id,
                 'exercise_id' => $exerciseId,

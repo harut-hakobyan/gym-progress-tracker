@@ -172,6 +172,17 @@ class WorkoutTemplateService
         });
     }
 
+    public function createTemplate(User $user, string $name, ?string $description = null, ?int $dayOfWeek = null): WorkoutTemplate
+    {
+        return WorkoutTemplate::query()->create([
+            'user_id' => $user->id,
+            'name' => $this->normalizeName($name),
+            'description' => $description,
+            'day_of_week' => $dayOfWeek,
+            'is_active' => true,
+        ]);
+    }
+
     public function normalizeName(string $name): string
     {
         return Str::of($name)->trim()->squish()->toString();

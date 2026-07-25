@@ -3,6 +3,7 @@
 namespace App\Services\Telegram\Handlers;
 
 use App\Enums\TelegramState;
+use App\Models\Exercise;
 use App\Models\MuscleGroup;
 use App\Models\User;
 use App\Models\UserTelegramState;
@@ -98,6 +99,14 @@ class TemplateFlowHandler
 
         if ($state->state === TelegramState::AwaitingTemplateMuscleGroups->value) {
             $this->bot->sendMessage($chatId, __('telegram.templates.choose_groups_reminder'), [
+                'reply_markup' => $this->keyboards->cancelOnly(),
+            ]);
+
+            return;
+        }
+
+        if ($state->state === TelegramState::AwaitingTemplateExercises->value) {
+            $this->bot->sendMessage($chatId, __('telegram.templates.choose_exercises_reminder'), [
                 'reply_markup' => $this->keyboards->cancelOnly(),
             ]);
         }
@@ -203,7 +212,13 @@ class TemplateFlowHandler
         }
 
         if ($action === 'done') {
-            $this->completeCreation($user, $chatId, $messageId);
+            $this->handleDone($user, $chatId, $messageId);
+
+            return;
+        }
+
+        if ($action === 'create_exercise' && $target !== null) {
+            $this->toggleCreationExercise($user, $chatId, $messageId, (int) $target);
 
             return;
         }
@@ -253,6 +268,11 @@ class TemplateFlowHandler
             'template_name' => $name,
             'day_of_week' => $dayOfWeek,
             'selected_group_ids' => [],
+            'selected_exercise_ids' => collect(data_get($state->payload, 'selected_exercise_ids', []))
+                ->map(fn ($id) => (int) $id)
+                ->filter(fn (int $id) => $id > 0)
+                ->values()
+                ->all(),
         ]);
 
         $this->showGroupSelection($chatId, (int) data_get($state->payload, 'message_id', $messageId), $name, [], $dayOfWeek);
@@ -289,6 +309,36 @@ class TemplateFlowHandler
             return;
         }
 
+        if ($state !== null && $state->state === TelegramState::AwaitingTemplateExercises->value) {
+            $selectedGroupIds = collect(data_get($state->payload, 'selected_group_ids', []))
+                ->map(fn ($id) => (int) $id)
+                ->filter(fn (int $id) => $id > 0)
+                ->values()
+                ->all();
+            $name = (string) data_get($state->payload, 'template_name', '');
+            $dayOfWeek = $this->normalizeDayOfWeek(data_get($state->payload, 'day_of_week'));
+            $selectedExerciseIds = collect(data_get($state->payload, 'selected_exercise_ids', []))
+                ->map(fn ($id) => (int) $id)
+                ->values()
+                ->all();
+
+            $this->stateService->put($user, TelegramState::AwaitingTemplateMuscleGroups, [
+                'message_id' => (int) data_get($state->payload, 'message_id', $messageId),
+                'template_name' => $name,
+                'day_of_week' => $dayOfWeek,
+                'selected_group_ids' => $selectedGroupIds,
+                'selected_exercise_ids' => collect(data_get($state->payload, 'selected_exercise_ids', []))
+                    ->map(fn ($id) => (int) $id)
+                    ->filter(fn (int $id) => $id > 0)
+                    ->values()
+                    ->all(),
+            ]);
+
+            $this->showGroupSelection($chatId, (int) data_get($state->payload, 'message_id', $messageId), $name, $selectedGroupIds, $dayOfWeek);
+
+            return;
+        }
+
         $this->showTemplateList($user, $chatId, $messageId);
     }
 
@@ -319,6 +369,11 @@ class TemplateFlowHandler
             'template_name' => $name,
             'day_of_week' => $dayOfWeek,
             'selected_group_ids' => $selected,
+            'selected_exercise_ids' => collect(data_get($state->payload, 'selected_exercise_ids', []))
+                ->map(fn ($id) => (int) $id)
+                ->filter(fn (int $id) => $id > 0)
+                ->values()
+                ->all(),
         ]);
 
         $this->showGroupSelection($chatId, (int) data_get($state->payload, 'message_id', $messageId), $name, $selected, $dayOfWeek);
@@ -353,16 +408,79 @@ class TemplateFlowHandler
             'template_name' => $name,
             'day_of_week' => $dayOfWeek,
             'selected_group_ids' => $selected,
+            'selected_exercise_ids' => collect(data_get($state->payload, 'selected_exercise_ids', []))
+                ->map(fn ($id) => (int) $id)
+                ->filter(fn (int $id) => $id > 0)
+                ->values()
+                ->all(),
         ]);
 
         $this->showGroupSelection($chatId, (int) data_get($state->payload, 'message_id', $messageId), $name, $selected, $dayOfWeek);
     }
 
-    private function completeCreation(User $user, int $chatId, int $messageId): void
+    private function handleDone(User $user, int $chatId, int $messageId): void
     {
         $state = $this->stateService->get($user);
 
-        if ($state === null || $state->state !== TelegramState::AwaitingTemplateMuscleGroups->value) {
+        if ($state === null) {
+            return;
+        }
+
+        if ($state->state === TelegramState::AwaitingTemplateMuscleGroups->value) {
+            $selectedGroupIds = collect(data_get($state->payload, 'selected_group_ids', []))
+                ->map(fn ($id) => (int) $id)
+                ->filter(fn (int $id) => $id > 0)
+                ->values()
+                ->all();
+
+            if ($selectedGroupIds === []) {
+                $this->bot->sendMessage($chatId, __('telegram.templates.no_groups_selected'));
+
+                return;
+            }
+
+            $this->stateService->put($user, TelegramState::AwaitingTemplateExercises, [
+                'message_id' => (int) data_get($state->payload, 'message_id', $messageId),
+                'template_name' => (string) data_get($state->payload, 'template_name', 'Workout'),
+                'day_of_week' => $this->normalizeDayOfWeek(data_get($state->payload, 'day_of_week')),
+                'selected_group_ids' => $selectedGroupIds,
+                'selected_exercise_ids' => collect(data_get($state->payload, 'selected_exercise_ids', []))
+                    ->map(fn ($id) => (int) $id)
+                    ->filter(fn (int $id) => $id > 0)
+                    ->values()
+                    ->all(),
+            ]);
+
+            $this->showCreationExerciseSelection(
+                $user,
+                $chatId,
+                (int) data_get($state->payload, 'message_id', $messageId),
+                (string) data_get($state->payload, 'template_name', 'Workout'),
+                $selectedGroupIds,
+                collect(data_get($state->payload, 'selected_exercise_ids', []))
+                    ->map(fn ($id) => (int) $id)
+                    ->filter(fn (int $id) => $id > 0)
+                    ->values()
+                    ->all(),
+                $this->normalizeDayOfWeek(data_get($state->payload, 'day_of_week'))
+            );
+
+            return;
+        }
+
+        if ($state->state !== TelegramState::AwaitingTemplateExercises->value) {
+            return;
+        }
+
+        $selectedExerciseIds = collect(data_get($state->payload, 'selected_exercise_ids', []))
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn (int $id) => $id > 0)
+            ->values()
+            ->all();
+
+        if ($selectedExerciseIds === []) {
+            $this->bot->sendMessage($chatId, __('telegram.templates.no_exercises_selected'));
+
             return;
         }
 
@@ -372,19 +490,14 @@ class TemplateFlowHandler
             ->values()
             ->all();
 
-        if ($selectedGroupIds === []) {
-            $this->bot->sendMessage($chatId, __('telegram.templates.no_groups_selected'));
-
-            return;
-        }
-
-        $template = $this->templates->createFromMuscleGroups(
+        $template = $this->templates->createTemplate(
             $user,
             (string) data_get($state->payload, 'template_name', 'Workout'),
-            $selectedGroupIds,
-            null,
+            implode(' + ', MuscleGroup::query()->whereIn('id', $selectedGroupIds)->orderBy('name')->pluck('name')->all()) ?: null,
             $this->normalizeDayOfWeek(data_get($state->payload, 'day_of_week')),
         );
+
+        $this->attachSelectedExercisesToTemplate($template, $selectedExerciseIds, $user);
 
         $template->loadMissing('templateExercises.exercise.muscleGroup');
 
@@ -396,6 +509,28 @@ class TemplateFlowHandler
         ]);
 
         $this->showTemplateList($user, $chatId, $messageId, $summary);
+    }
+
+    private function attachSelectedExercisesToTemplate(WorkoutTemplate $template, array $selectedExerciseIds, User $user): void
+    {
+        $exercises = Exercise::query()
+            ->with('muscleGroup')
+            ->whereIn('id', $selectedExerciseIds)
+            ->where('is_active', true)
+            ->where(fn ($query) => $query->whereNull('user_id')->orWhere('user_id', $user->id))
+            ->orderBy('name')
+            ->get()
+            ->keyBy('id');
+
+        foreach ($selectedExerciseIds as $exerciseId) {
+            $exercise = $exercises->get($exerciseId);
+
+            if ($exercise === null) {
+                continue;
+            }
+
+            $this->templates->addExercise($template, $exercise);
+        }
     }
 
     private function startRename(User $user, int $chatId, int $messageId, int $templateId): void
@@ -727,6 +862,7 @@ class TemplateFlowHandler
 
         $text = __('telegram.templates.choose_groups', ['name' => $name]);
         $text .= "\n\n".__('telegram.templates.day_summary', ['day' => $this->dayOfWeekLabel($dayOfWeek)]);
+        $text .= "\n\n".__('telegram.templates.choose_exercises_reminder');
 
         if ($selectedNames !== []) {
             $text .= "\n\n".__('telegram.templates.selected_groups', [
@@ -737,6 +873,108 @@ class TemplateFlowHandler
         $this->bot->editMessageText($chatId, $messageId, $text, [
             'reply_markup' => $this->keyboards->templateGroupSelection($groups, $selectedGroupIds),
         ]);
+    }
+
+    private function showCreationExerciseSelection(
+        User $user,
+        int $chatId,
+        int $messageId,
+        string $name,
+        array $selectedGroupIds,
+        array $selectedExerciseIds,
+        ?int $dayOfWeek
+    ): void {
+        $exercises = Exercise::query()
+            ->with('muscleGroup')
+            ->whereIn('muscle_group_id', $selectedGroupIds)
+            ->where('is_active', true)
+            ->where(fn ($query) => $query->whereNull('user_id')->orWhere('user_id', $user->id))
+            ->orderBy('name')
+            ->get()
+            ->map(fn (Exercise $exercise) => [
+                'id' => $exercise->id,
+                'name' => $exercise->name,
+            ])
+            ->all();
+
+        $selectedNames = MuscleGroup::query()
+            ->whereIn('id', $selectedGroupIds)
+            ->orderBy('name')
+            ->pluck('name')
+            ->all();
+
+        $text = __('telegram.templates.choose_exercises', ['name' => $name]);
+        $text .= "\n\n".__('telegram.templates.day_summary', ['day' => $this->dayOfWeekLabel($dayOfWeek)]);
+        $text .= "\n\n".__('telegram.templates.selected_groups', [
+            'groups' => implode(', ', $selectedNames),
+        ]);
+
+        if ($selectedExerciseIds !== []) {
+            $selectedExerciseNames = Exercise::query()
+                ->whereIn('id', $selectedExerciseIds)
+                ->orderBy('name')
+                ->pluck('name')
+                ->all();
+
+            if ($selectedExerciseNames !== []) {
+                $text .= "\n\n".__('telegram.templates.selected_exercises', [
+                    'exercises' => implode(', ', $selectedExerciseNames),
+                ]);
+            }
+        }
+
+        if ($exercises === []) {
+            $text .= "\n\n".__('telegram.templates.no_exercises_for_groups');
+        }
+
+        $this->bot->editMessageText($chatId, $messageId, $text, [
+            'reply_markup' => $this->keyboards->templateCreationExerciseSelection($exercises, $selectedExerciseIds),
+        ]);
+    }
+
+    private function toggleCreationExercise(User $user, int $chatId, int $messageId, int $exerciseId): void
+    {
+        $state = $this->stateService->get($user);
+
+        if ($state === null || $state->state !== TelegramState::AwaitingTemplateExercises->value) {
+            return;
+        }
+
+        $selectedExerciseIds = collect(data_get($state->payload, 'selected_exercise_ids', []))
+            ->map(fn ($id) => (int) $id)
+            ->values()
+            ->all();
+
+        if (in_array($exerciseId, $selectedExerciseIds, true)) {
+            $selectedExerciseIds = array_values(array_filter($selectedExerciseIds, fn (int $id) => $id !== $exerciseId));
+        } else {
+            $selectedExerciseIds[] = $exerciseId;
+        }
+
+        $selectedGroupIds = collect(data_get($state->payload, 'selected_group_ids', []))
+            ->map(fn ($id) => (int) $id)
+            ->values()
+            ->all();
+        $name = (string) data_get($state->payload, 'template_name', '');
+        $dayOfWeek = $this->normalizeDayOfWeek(data_get($state->payload, 'day_of_week'));
+
+        $this->stateService->put($user, TelegramState::AwaitingTemplateExercises, [
+            'message_id' => (int) data_get($state->payload, 'message_id', $messageId),
+            'template_name' => $name,
+            'day_of_week' => $dayOfWeek,
+            'selected_group_ids' => $selectedGroupIds,
+            'selected_exercise_ids' => $selectedExerciseIds,
+        ]);
+
+        $this->showCreationExerciseSelection(
+            $user,
+            $chatId,
+            (int) data_get($state->payload, 'message_id', $messageId),
+            $name,
+            $selectedGroupIds,
+            $selectedExerciseIds,
+            $dayOfWeek
+        );
     }
 
     private function showDaySelection(int $chatId, int $messageId, string $name, ?int $selectedDayOfWeek, bool $editing, ?int $templateId): void
