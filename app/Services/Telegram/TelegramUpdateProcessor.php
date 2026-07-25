@@ -53,14 +53,19 @@ class TelegramUpdateProcessor
     {
         $user = $this->userService->resolveFromMessage($message);
         $text = trim((string) data_get($message, 'text', ''));
+        $state = $this->stateService->get($user);
+
+        if ($state !== null && $text === '') {
+            $this->stateMessageHandler->handle($user, $message, $state);
+
+            return;
+        }
 
         if ($text === '') {
             return;
         }
 
         if (! str_starts_with($text, '/')) {
-            $state = $this->stateService->get($user);
-
             if ($state !== null) {
                 $this->stateMessageHandler->handle($user, $message, $state);
 

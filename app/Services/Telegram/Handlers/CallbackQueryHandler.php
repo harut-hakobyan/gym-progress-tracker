@@ -69,7 +69,7 @@ class CallbackQueryHandler
             'history' => $this->handleHistoryCallbacks($callbackQueryId, $user, $chatId, $messageId, $action, $target),
             'stats' => $this->handleStatsCallbacks($callbackQueryId, $user, $chatId, $messageId, $action),
             'records' => $this->handleRecordsCallbacks($callbackQueryId, $user, $chatId, $messageId, $action),
-            'admin' => $this->handleAdminCallbacks($callbackQueryId, $user, $chatId, $messageId, $action, $target, $tail),
+            'admin' => $this->handleAdminCallbacks($callbackQueryId, $user, $chatId, $messageId, $action, $target, $tail, $segments[4] ?? null),
             'settings' => $this->handleSettingsCallbacks($callbackQueryId, $user, $chatId, $messageId, $action, $target, $tail),
             default => $this->bot->answerCallbackQuery($callbackQueryId, __('telegram.unknown_action')),
         };
@@ -273,7 +273,7 @@ class CallbackQueryHandler
         $this->bot->answerCallbackQuery($callbackQueryId, __('telegram.unknown_action'));
     }
 
-    private function handleAdminCallbacks(string $callbackQueryId, User $user, int $chatId, int $messageId, string $action, ?string $target, ?string $tail): void
+    private function handleAdminCallbacks(string $callbackQueryId, User $user, int $chatId, int $messageId, string $action, ?string $target, ?string $tail, ?string $kind = null): void
     {
         if (! $this->access->isAdmin($user)) {
             $this->bot->answerCallbackQuery($callbackQueryId, __('telegram.admin.no_access'));
@@ -305,6 +305,20 @@ class CallbackQueryHandler
         if ($action === 'add' && $target !== null) {
             $this->bot->answerCallbackQuery($callbackQueryId);
             $this->adminFlowHandler->startExerciseCreate($user, $chatId, $messageId, (int) $target);
+
+            return;
+        }
+
+        if ($action === 'media' && $target !== null && $tail !== null) {
+            $this->bot->answerCallbackQuery($callbackQueryId);
+            $this->adminFlowHandler->showExerciseMediaChoice($user, $chatId, $messageId, (int) $target, (int) $tail);
+
+            return;
+        }
+
+        if ($action === 'media_kind' && $target !== null && $tail !== null) {
+            $this->bot->answerCallbackQuery($callbackQueryId);
+            $this->adminFlowHandler->startExerciseMedia($user, $chatId, $messageId, (int) $target, (int) $tail, $kind ?? 'photo');
 
             return;
         }

@@ -121,10 +121,21 @@ class WorkoutFlowHandler
         $overview = $this->workouts->exerciseOverview($user, $exercise);
 
         $text = $this->buildExerciseText($exercise->name, $overview);
-
-        $this->bot->editMessageText($chatId, $messageId, $text, [
+        $replyMarkup = [
             'reply_markup' => $this->keyboards->workoutExerciseActions($workoutExercise->id, $exercise->id, $overview['last_set'] !== null),
-        ]);
+        ];
+
+        if ($exercise->media_value !== null && $exercise->media_value !== '') {
+            $this->bot->editMessageMedia($chatId, $messageId, [
+                'type' => $exercise->media_type === 'animation' ? 'animation' : 'photo',
+                'media' => $exercise->media_value,
+                'caption' => $text,
+            ], $replyMarkup);
+
+            return;
+        }
+
+        $this->bot->editMessageText($chatId, $messageId, $text, $replyMarkup);
     }
 
     public function showExerciseForecast(User $user, int $chatId, int $messageId, int $exerciseId): void

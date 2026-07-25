@@ -41,6 +41,8 @@ class ExerciseController extends Controller
             'name' => $request->string('name')->toString(),
             'slug' => $request->filled('slug') ? $request->string('slug')->toString() : Str::slug($request->string('name')->toString()),
             'description' => $request->input('description'),
+            'media_type' => $request->input('media_type'),
+            'media_value' => $request->input('media_value'),
             'is_custom' => (bool) $request->boolean('is_custom', true),
             'is_active' => (bool) $request->boolean('is_active', true),
         ]);
@@ -68,6 +70,8 @@ class ExerciseController extends Controller
             'name' => $request->filled('name') ? $request->string('name')->toString() : $exercise->name,
             'slug' => $request->filled('slug') ? $request->string('slug')->toString() : $exercise->slug,
             'description' => $request->input('description', $exercise->description),
+            'media_type' => $request->input('media_type', $exercise->media_type),
+            'media_value' => $request->input('media_value', $exercise->media_value),
             'is_custom' => $request->has('is_custom') ? (bool) $request->boolean('is_custom') : $exercise->is_custom,
             'is_active' => $request->has('is_active') ? (bool) $request->boolean('is_active') : $exercise->is_active,
         ]);

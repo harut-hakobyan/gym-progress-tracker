@@ -22,6 +22,8 @@ class ExerciseFactory extends Factory
             'name' => Str::title($name),
             'slug' => Str::slug($name),
             'description' => fake()->optional()->sentence(),
+            'media_type' => null,
+            'media_value' => null,
             'is_custom' => false,
             'is_active' => true,
         ];

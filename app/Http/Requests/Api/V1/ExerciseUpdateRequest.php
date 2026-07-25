@@ -18,6 +18,8 @@ class ExerciseUpdateRequest extends FormRequest
             'name' => ['sometimes', 'string', 'max:255'],
             'slug' => ['sometimes', 'nullable', 'string', 'max:255'],
             'description' => ['sometimes', 'nullable', 'string'],
+            'media_type' => ['sometimes', 'nullable', 'string', 'in:photo,animation'],
+            'media_value' => ['sometimes', 'nullable', 'string'],
             'is_custom' => ['sometimes', 'boolean'],
             'is_active' => ['sometimes', 'boolean'],
         ];

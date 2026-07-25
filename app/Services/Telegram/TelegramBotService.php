@@ -26,6 +26,15 @@ class TelegramBotService
         ], $extra));
     }
 
+    public function editMessageMedia(int|string $chatId, int $messageId, array $media, array $extra = []): bool
+    {
+        return $this->request('editMessageMedia', array_merge([
+            'chat_id' => $chatId,
+            'message_id' => $messageId,
+            'media' => json_encode($media, JSON_UNESCAPED_UNICODE),
+        ], $extra));
+    }
+
     public function answerCallbackQuery(string $callbackQueryId, ?string $text = null, bool $showAlert = false): bool
     {
         $payload = [

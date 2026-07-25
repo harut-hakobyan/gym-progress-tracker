@@ -22,6 +22,8 @@ class ExerciseResource extends JsonResource
             'name' => $this->name,
             'slug' => $this->slug,
             'description' => $this->description,
+            'media_type' => $this->media_type,
+            'media_value' => $this->media_value,
             'is_custom' => $this->is_custom,
             'is_active' => $this->is_active,
             'created_at' => $this->created_at?->toISOString(),

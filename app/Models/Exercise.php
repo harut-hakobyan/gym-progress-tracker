@@ -17,6 +17,8 @@ class Exercise extends Model
         'name',
         'slug',
         'description',
+        'media_type',
+        'media_value',
         'is_custom',
         'is_active',
     ];

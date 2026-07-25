@@ -370,12 +370,19 @@ class TelegramKeyboardFactory
 
         foreach ($exercises as $exercise) {
             $label = $exercise['name'];
-            $label = ($exercise['is_active'] ? '✅ ' : '⛔ ').$label;
+            $statusMark = $exercise['is_active'] ? '✅' : '⛔';
+            $mediaMark = $exercise['has_media']
+                ? ($exercise['media_type'] === 'animation' ? '🎞' : '🖼')
+                : '➕';
 
             $keyboard[] = [
                 [
-                    'text' => $label,
+                    'text' => $statusMark.' '.$label,
                     'callback_data' => 'admin:toggle:'.$groupId.':'.$exercise['id'],
+                ],
+                [
+                    'text' => $mediaMark,
+                    'callback_data' => 'admin:media:'.$groupId.':'.$exercise['id'],
                 ],
             ];
         }
@@ -395,6 +402,34 @@ class TelegramKeyboardFactory
         ];
 
         return ['inline_keyboard' => $keyboard];
+    }
+
+    public function adminExerciseMediaActions(int $groupId, int $exerciseId): array
+    {
+        return [
+            'inline_keyboard' => [
+                [
+                    [
+                        'text' => __('telegram.admin.media_photo'),
+                        'callback_data' => 'admin:media_kind:'.$groupId.':'.$exerciseId.':photo',
+                    ],
+                    [
+                        'text' => __('telegram.admin.media_gif'),
+                        'callback_data' => 'admin:media_kind:'.$groupId.':'.$exerciseId.':animation',
+                    ],
+                ],
+                [
+                    [
+                        'text' => __('telegram.buttons.back'),
+                        'callback_data' => 'admin:group:'.$groupId,
+                    ],
+                    [
+                        'text' => __('telegram.buttons.cancel'),
+                        'callback_data' => 'common:cancel',
+                    ],
+                ],
+            ],
+        ];
     }
 
     public function adminExerciseCreateActions(int $groupId): array
