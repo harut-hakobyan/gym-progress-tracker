@@ -350,6 +350,162 @@ class WorkoutFlowTest extends TestCase
         ]);
     }
 
+    public function test_workout_exercise_shows_recent_sets_and_allows_quick_repeat(): void
+    {
+        Http::fake([
+            'api.telegram.org/*' => Http::response(['ok' => true, 'result' => []], 200),
+        ]);
+
+        $this->seed();
+
+        $telegramId = 880005;
+        $user = User::factory()->create([
+            'telegram_id' => $telegramId,
+            'email' => null,
+        ]);
+
+        $exercise = Exercise::query()->where('name', 'Жим штанги лёжа')->firstOrFail();
+
+        $historyWorkout = Workout::query()->create([
+            'user_id' => $user->id,
+            'workout_template_id' => null,
+            'name' => 'History workout',
+            'status' => WorkoutStatus::Completed,
+            'started_at' => now()->subDays(3),
+            'completed_at' => now()->subDays(3)->addHour(),
+            'duration_seconds' => 3600,
+            'user_body_weight' => null,
+            'notes' => null,
+        ]);
+
+        $historyWorkoutExercise = WorkoutExercise::query()->create([
+            'workout_id' => $historyWorkout->id,
+            'exercise_id' => $exercise->id,
+            'position' => 1,
+            'notes' => null,
+        ]);
+
+        WorkoutSet::query()->create([
+            'workout_exercise_id' => $historyWorkoutExercise->id,
+            'set_number' => 1,
+            'type' => \App\Enums\WorkoutSetType::Working,
+            'weight' => 80.0,
+            'repetitions' => 8,
+            'duration_seconds' => null,
+            'distance_meters' => null,
+            'rpe' => null,
+            'rir' => null,
+            'rest_seconds' => null,
+            'is_completed' => true,
+            'completed_at' => now()->subDays(3)->addMinutes(1),
+            'notes' => null,
+        ]);
+
+        WorkoutSet::query()->create([
+            'workout_exercise_id' => $historyWorkoutExercise->id,
+            'set_number' => 2,
+            'type' => \App\Enums\WorkoutSetType::Working,
+            'weight' => 80.0,
+            'repetitions' => 8,
+            'duration_seconds' => null,
+            'distance_meters' => null,
+            'rpe' => null,
+            'rir' => null,
+            'rest_seconds' => null,
+            'is_completed' => true,
+            'completed_at' => now()->subDays(3)->addMinutes(3),
+            'notes' => null,
+        ]);
+
+        WorkoutSet::query()->create([
+            'workout_exercise_id' => $historyWorkoutExercise->id,
+            'set_number' => 3,
+            'type' => \App\Enums\WorkoutSetType::Working,
+            'weight' => 85.0,
+            'repetitions' => 6,
+            'duration_seconds' => null,
+            'distance_meters' => null,
+            'rpe' => null,
+            'rir' => null,
+            'rest_seconds' => null,
+            'is_completed' => true,
+            'completed_at' => now()->subDays(2)->addMinutes(1),
+            'notes' => null,
+        ]);
+
+        $activeWorkout = Workout::query()->create([
+            'user_id' => $user->id,
+            'workout_template_id' => null,
+            'name' => 'Active workout',
+            'status' => WorkoutStatus::Active,
+            'started_at' => now(),
+            'completed_at' => null,
+            'duration_seconds' => null,
+            'user_body_weight' => null,
+            'notes' => null,
+        ]);
+
+        $this->postJson('/api/telegram/webhook/test-secret', [
+            'update_id' => 4010,
+            'callback_query' => [
+                'id' => 'cb-1',
+                'from' => [
+                    'id' => $telegramId,
+                    'first_name' => 'Harut',
+                    'username' => 'harut',
+                ],
+                'message' => [
+                    'message_id' => 10,
+                    'chat' => [
+                        'id' => $telegramId,
+                        'type' => 'private',
+                    ],
+                ],
+                'data' => 'workout:exercise:'.$exercise->id,
+            ],
+        ])->assertOk();
+
+        Http::assertSent(function ($request): bool {
+            $replyMarkup = (string) ($request['reply_markup'] ?? '');
+
+            return str_contains($request->url(), 'editMessageText')
+                && str_contains((string) ($request['text'] ?? ''), 'Последние подходы')
+                && str_contains($replyMarkup, 'set:quick:')
+                && str_contains($replyMarkup, '2 раза');
+        });
+
+        $workoutExercise = WorkoutExercise::query()
+            ->where('workout_id', $activeWorkout->id)
+            ->where('exercise_id', $exercise->id)
+            ->firstOrFail();
+
+        $this->postJson('/api/telegram/webhook/test-secret', [
+            'update_id' => 4011,
+            'callback_query' => [
+                'id' => 'cb-2',
+                'from' => [
+                    'id' => $telegramId,
+                    'first_name' => 'Harut',
+                    'username' => 'harut',
+                ],
+                'message' => [
+                    'message_id' => 10,
+                    'chat' => [
+                        'id' => $telegramId,
+                        'type' => 'private',
+                    ],
+                ],
+                'data' => 'set:quick:'.$workoutExercise->id.':80.00:8',
+            ],
+        ])->assertOk();
+
+        $this->assertDatabaseHas('workout_sets', [
+            'workout_exercise_id' => $workoutExercise->id,
+            'weight' => '80.00',
+            'repetitions' => 8,
+        ]);
+    }
+
     public function test_workout_start_shows_custom_templates_before_standard_ones(): void
     {
         Http::fake([

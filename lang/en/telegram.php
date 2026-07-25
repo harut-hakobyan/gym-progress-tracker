@@ -145,6 +145,8 @@ return [
         'best_weight' => 'Best weight: :weight kg',
         'best_1rm' => 'Best estimated 1RM: :value kg',
         'recommendation' => 'Today recommendation: :weight kg',
+        'recent_sets_title' => 'Recent sets:',
+        'recent_set_count' => '(:count times)',
         'unknown_value' => '—',
         'duration_hours_minutes' => ':hours h :minutes min',
         'duration_minutes' => ':minutes min',

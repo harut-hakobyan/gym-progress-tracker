@@ -124,10 +124,11 @@ class WorkoutFlowHandler
 
         $workoutExercise = $this->workouts->attachExercise($workout, $exercise);
         $overview = $this->workouts->exerciseOverview($user, $exercise);
+        $recentSets = $this->workouts->recentExerciseSets($user, $exercise)->all();
 
-        $text = $this->buildExerciseText($exercise->name, $overview);
+        $text = $this->buildExerciseText($exercise->name, $overview, $recentSets);
         $replyMarkup = [
-            'reply_markup' => $this->keyboards->workoutExerciseActions($workoutExercise->id, $exercise->id, $overview['last_set'] !== null),
+            'reply_markup' => $this->keyboards->workoutExerciseActions($workoutExercise->id, $exercise->id, $overview['last_set'] !== null, $recentSets),
         ];
 
         if ($exercise->media_value !== null && $exercise->media_value !== '') {
@@ -230,6 +231,25 @@ class WorkoutFlowHandler
         ]);
     }
 
+    public function quickHistoricalSet(User $user, int $chatId, ?int $messageId, int $workoutExerciseId, float $weight, int $repetitions): void
+    {
+        $workoutExercise = $this->workouts->workoutExerciseById($user, $workoutExerciseId);
+
+        if ($workoutExercise === null) {
+            $this->renderWorkoutText($chatId, $messageId, __('telegram.workout.exercise_not_found'), [
+                'reply_markup' => $this->keyboards->mainMenu($this->access->isAdmin($user)),
+            ]);
+
+            return;
+        }
+
+        $this->workoutSetInputHandler->saveSetAndRespond($user, $chatId, $messageId, [
+            'workout_exercise_id' => $workoutExercise->id,
+            'weight' => $weight,
+            'repetitions' => $repetitions,
+        ]);
+    }
+
     public function completeWorkout(User $user, int $chatId, ?int $messageId): void
     {
         $workout = $this->workouts->activeWorkout($user);
@@ -289,7 +309,7 @@ class WorkoutFlowHandler
         return implode("\n", $parts);
     }
 
-    private function buildExerciseText(string $name, array $overview): string
+    private function buildExerciseText(string $name, array $overview, array $recentSets = []): string
     {
         $lines = [
             $name,
@@ -317,6 +337,12 @@ class WorkoutFlowHandler
         $lines[] = __('telegram.workout.recommendation', [
             'weight' => number_format((float) $overview['recommended_weight'], 1, '.', ' '),
         ]);
+
+        if ($recentSets !== []) {
+            $lines[] = '';
+            $lines[] = __('telegram.workout.recent_sets_title');
+        }
+
         return implode("\n", $lines);
     }
 

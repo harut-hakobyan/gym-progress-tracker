@@ -10,9 +10,11 @@ use App\Models\Workout;
 use App\Models\WorkoutExercise;
 use App\Models\WorkoutSet;
 use App\Models\WorkoutTemplate;
+use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Collection as SupportCollection;
 
 class WorkoutFlowService
 {
@@ -239,6 +241,42 @@ class WorkoutFlowService
             'best_one_rep_max' => $bestOneRepMax,
             'recommended_weight' => $recommendationWeight,
         ];
+    }
+
+    public function recentExerciseSets(User $user, Exercise $exercise, int $limit = 6): SupportCollection
+    {
+        $rows = DB::table('workout_sets')
+            ->join('workout_exercises', 'workout_exercises.id', '=', 'workout_sets.workout_exercise_id')
+            ->join('workouts', 'workouts.id', '=', 'workout_exercises.workout_id')
+            ->where('workouts.user_id', $user->id)
+            ->whereIn('workouts.status', [WorkoutStatus::Active->value, WorkoutStatus::Completed->value])
+            ->where('workout_exercises.exercise_id', $exercise->id)
+            ->where('workout_sets.is_completed', true)
+            ->where('workout_sets.type', WorkoutSetType::Working->value)
+            ->orderByRaw('COALESCE(workouts.completed_at, workouts.started_at) DESC')
+            ->orderByDesc('workout_sets.set_number')
+            ->get([
+                'workouts.completed_at as completed_at',
+                'workouts.started_at as started_at',
+                'workout_sets.weight',
+                'workout_sets.repetitions',
+            ]);
+
+        return $rows
+            ->groupBy(fn ($row): string => sprintf('%s|%s', number_format((float) $row->weight, 2, '.', ''), (int) $row->repetitions))
+            ->map(function (SupportCollection $group): array {
+                $sample = $group->first();
+
+                return [
+                    'weight' => (float) $sample->weight,
+                    'repetitions' => (int) $sample->repetitions,
+                    'count' => $group->count(),
+                    'last_used_at' => Carbon::parse($sample->completed_at ?? $sample->started_at),
+                ];
+            })
+            ->sortByDesc('last_used_at')
+            ->take($limit)
+            ->values();
     }
 
     public function completeWorkout(Workout $workout): array

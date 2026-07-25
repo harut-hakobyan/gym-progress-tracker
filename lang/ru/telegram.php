@@ -145,6 +145,8 @@ return [
         'best_weight' => 'Лучший вес: :weight кг',
         'best_1rm' => 'Лучший расчётный 1ПМ: :value кг',
         'recommendation' => 'Рекомендация на сегодня: :weight кг',
+        'recent_sets_title' => 'Последние подходы:',
+        'recent_set_count' => '(:count раза)',
         'unknown_value' => '—',
         'duration_hours_minutes' => ':hours ч :minutes мин',
         'duration_minutes' => ':minutes мин',

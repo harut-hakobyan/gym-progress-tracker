@@ -143,7 +143,7 @@ class TelegramKeyboardFactory
         return ['inline_keyboard' => $keyboard];
     }
 
-    public function workoutExerciseActions(int $workoutExerciseId, int $exerciseId, bool $canRepeat = false): array
+    public function workoutExerciseActions(int $workoutExerciseId, int $exerciseId, bool $canRepeat = false, array $recentSets = []): array
     {
         $keyboard = [
             [
@@ -159,6 +159,12 @@ class TelegramKeyboardFactory
                 ],
             ],
         ];
+
+        if ($recentSets !== []) {
+            foreach ($this->workoutExerciseRecentSets($workoutExerciseId, $recentSets) as $row) {
+                $keyboard[] = $row;
+            }
+        }
 
         if ($canRepeat) {
             $keyboard[] = [
@@ -192,6 +198,39 @@ class TelegramKeyboardFactory
         ];
 
         return ['inline_keyboard' => $keyboard];
+    }
+
+    public function workoutExerciseRecentSets(int $workoutExerciseId, array $recentSets): array
+    {
+        $rows = [];
+        $row = [];
+
+        foreach ($recentSets as $set) {
+            $label = __('telegram.workout.last_result_value', [
+                'weight' => number_format((float) $set['weight'], 1, '.', ' '),
+                'repetitions' => (int) $set['repetitions'],
+            ]);
+
+            if (($set['count'] ?? 1) > 1) {
+                $label .= ' '.__('telegram.workout.recent_set_count', ['count' => (int) $set['count']]);
+            }
+
+            $row[] = [
+                'text' => $label,
+                'callback_data' => 'set:quick:'.$workoutExerciseId.':'.number_format((float) $set['weight'], 2, '.', '').':'.(int) $set['repetitions'],
+            ];
+
+            if (count($row) === 2) {
+                $rows[] = $row;
+                $row = [];
+            }
+        }
+
+        if ($row !== []) {
+            $rows[] = $row;
+        }
+
+        return $rows;
     }
 
     public function setResult(int $workoutExerciseId): array

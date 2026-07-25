@@ -59,7 +59,7 @@ class CallbackQueryHandler
 
         match ($scope) {
             'workout' => $this->handleWorkoutCallbacks($callbackQueryId, $user, $chatId, $messageId, $action, $target, $messageIsMedia),
-            'set' => $this->handleSetCallbacks($callbackQueryId, $user, $chatId, $messageId, $action, $target, $tail, $messageIsMedia),
+            'set' => $this->handleSetCallbacks($callbackQueryId, $user, $chatId, $messageId, $action, $target, $tail, $segments[4] ?? null, $messageIsMedia),
             'templates' => $this->handleTemplateCallbacks($callbackQueryId, $user, $chatId, $messageId, $action, $target, $tail),
             'exercise' => $this->handleExerciseCallbacks($callbackQueryId, $user, $chatId, $messageId, $action, $target, $messageIsMedia),
             'goals' => $this->handleGoalsCallbacks($callbackQueryId, $user, $chatId, $messageId, $action, $target),
@@ -128,7 +128,7 @@ class CallbackQueryHandler
         $this->bot->answerCallbackQuery($callbackQueryId, __('telegram.unknown_action'));
     }
 
-    private function handleSetCallbacks(string $callbackQueryId, User $user, int $chatId, int $messageId, string $action, ?string $target, ?string $tail, bool $messageIsMedia): void
+    private function handleSetCallbacks(string $callbackQueryId, User $user, int $chatId, int $messageId, string $action, ?string $target, ?string $tail, ?string $extra, bool $messageIsMedia): void
     {
         if ($action === 'add') {
             $this->bot->answerCallbackQuery($callbackQueryId);
@@ -140,6 +140,20 @@ class CallbackQueryHandler
         if ($action === 'repeat') {
             $this->bot->answerCallbackQuery($callbackQueryId);
             $this->workoutFlowHandler->beginSetInput($user, $chatId, $messageIsMedia ? null : $messageId, (int) $target, true);
+
+            return;
+        }
+
+        if ($action === 'quick' && $target !== null && $tail !== null && $extra !== null) {
+            $this->bot->answerCallbackQuery($callbackQueryId);
+            $this->workoutFlowHandler->quickHistoricalSet(
+                $user,
+                $chatId,
+                $messageIsMedia ? null : $messageId,
+                (int) $target,
+                (float) $tail,
+                (int) $extra
+            );
 
             return;
         }
