@@ -63,6 +63,31 @@ class WorkoutTemplateService
         });
     }
 
+    public function updateTemplate(WorkoutTemplate $template, array $data = []): WorkoutTemplate
+    {
+        $template->update([
+            'name' => isset($data['name']) ? $this->normalizeName((string) $data['name']) : $template->name,
+            'description' => array_key_exists('description', $data) ? $data['description'] : $template->description,
+            'is_active' => array_key_exists('is_active', $data) ? (bool) $data['is_active'] : $template->is_active,
+        ]);
+
+        return $template->refresh();
+    }
+
+    public function updateDescription(WorkoutTemplate $template, ?string $description): WorkoutTemplate
+    {
+        $template->update([
+            'description' => $description !== null ? $this->normalizeName($description) : null,
+        ]);
+
+        return $template->refresh();
+    }
+
+    public function deleteTemplate(WorkoutTemplate $template): void
+    {
+        $template->delete();
+    }
+
     public function copy(User $user, WorkoutTemplate $template, ?string $name = null): WorkoutTemplate
     {
         return DB::transaction(function () use ($user, $template, $name): WorkoutTemplate {

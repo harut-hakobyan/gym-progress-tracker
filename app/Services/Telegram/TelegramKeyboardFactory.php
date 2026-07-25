@@ -32,7 +32,7 @@ class TelegramKeyboardFactory
         return [
             'inline_keyboard' => [
                 [
-                    ['text' => '❌ Отмена', 'callback_data' => 'common:cancel'],
+                    ['text' => __('telegram.buttons.cancel'), 'callback_data' => 'common:cancel'],
                 ],
             ],
         ];
@@ -53,20 +53,52 @@ class TelegramKeyboardFactory
 
         $keyboard[] = [
             [
-                'text' => 'Пустая тренировка',
-                'callback_data' => 'workout:template:empty',
+                'text' => __('telegram.templates.create'),
+                'callback_data' => 'templates:create',
+            ],
+            [
+                'text' => __('telegram.workout.standard_templates_heading'),
+                'callback_data' => 'workout:templates:standard',
             ],
         ];
 
         $keyboard[] = [
             [
-                'text' => '⬅️ Назад',
+                'text' => __('telegram.buttons.back'),
                 'callback_data' => 'common:menu',
             ],
         ];
 
         return ['inline_keyboard' => $keyboard];
     }
+
+    public function workoutStandardTemplates(array $templates): array
+    {
+        $keyboard = [];
+
+        foreach ($templates as $template) {
+            $keyboard[] = [
+                [
+                    'text' => $template['name'],
+                    'callback_data' => 'workout:template:'.$template['id'],
+                ],
+            ];
+        }
+
+        $keyboard[] = [
+            [
+                'text' => __('telegram.workout.empty_workout'),
+                'callback_data' => 'workout:template:empty',
+            ],
+            [
+                'text' => __('telegram.workout.back_to_custom_templates'),
+                'callback_data' => 'workout:templates:custom',
+            ],
+        ];
+
+        return ['inline_keyboard' => $keyboard];
+    }
+
 
     public function exerciseSelection(array $exercises): array
     {
@@ -91,11 +123,11 @@ class TelegramKeyboardFactory
 
         $keyboard[] = [
             [
-                'text' => '🏁 Завершить тренировку',
+                'text' => __('telegram.buttons.complete_workout'),
                 'callback_data' => 'workout:complete:current',
             ],
             [
-                'text' => '⬅️ Назад',
+                'text' => __('telegram.buttons.back'),
                 'callback_data' => 'workout:back:current',
             ],
         ];
@@ -108,13 +140,13 @@ class TelegramKeyboardFactory
         $keyboard = [
             [
                 [
-                    'text' => '➕ Добавить подход',
+                    'text' => __('telegram.buttons.add_set'),
                     'callback_data' => 'set:add:'.$workoutExerciseId,
                 ],
             ],
             [
                 [
-                    'text' => '📈 Прогресс',
+                    'text' => __('telegram.buttons.progress'),
                     'callback_data' => 'exercise:progress:'.$exerciseId,
                 ],
             ],
@@ -123,18 +155,18 @@ class TelegramKeyboardFactory
         if ($canRepeat) {
             $keyboard[] = [
                 [
-                    'text' => '🔁 Повторить подход',
+                    'text' => __('telegram.buttons.repeat_set'),
                     'callback_data' => 'set:repeat:'.$workoutExerciseId,
                 ],
                 [
-                    'text' => '✅ Завершить упражнение',
+                    'text' => __('telegram.buttons.complete_exercise'),
                     'callback_data' => 'exercise:back:current',
                 ],
             ];
         } else {
             $keyboard[] = [
                 [
-                    'text' => '✅ Завершить упражнение',
+                    'text' => __('telegram.buttons.complete_exercise'),
                     'callback_data' => 'exercise:back:current',
                 ],
             ];
@@ -142,11 +174,11 @@ class TelegramKeyboardFactory
 
         $keyboard[] = [
             [
-                'text' => '🏁 Завершить тренировку',
+                'text' => __('telegram.buttons.complete_workout'),
                 'callback_data' => 'workout:complete:current',
             ],
             [
-                'text' => '⬅️ Назад',
+                'text' => __('telegram.buttons.back'),
                 'callback_data' => 'workout:back:current',
             ],
         ];
@@ -160,21 +192,21 @@ class TelegramKeyboardFactory
             'inline_keyboard' => [
                 [
                     [
-                        'text' => '🔁 Повторить подход',
+                        'text' => __('telegram.buttons.repeat_set'),
                         'callback_data' => 'set:repeat:'.$workoutExerciseId,
                     ],
                     [
-                        'text' => '➕ Новый подход',
+                        'text' => __('telegram.buttons.new_set'),
                         'callback_data' => 'set:add:'.$workoutExerciseId,
                     ],
                 ],
                 [
                     [
-                        'text' => '✅ Завершить упражнение',
+                        'text' => __('telegram.buttons.complete_exercise'),
                         'callback_data' => 'exercise:back:current',
                     ],
                     [
-                        'text' => '🏁 Завершить тренировку',
+                        'text' => __('telegram.buttons.complete_workout'),
                         'callback_data' => 'workout:complete:current',
                     ],
                 ],
@@ -188,7 +220,7 @@ class TelegramKeyboardFactory
             'inline_keyboard' => [
                 [
                     [
-                        'text' => '⬅️ Назад',
+                        'text' => __('telegram.buttons.back'),
                         'callback_data' => 'exercise:back:current',
                     ],
                 ],
@@ -211,7 +243,7 @@ class TelegramKeyboardFactory
 
         $keyboard[] = [
             [
-                'text' => '⬅️ Назад',
+                'text' => __('telegram.buttons.back'),
                 'callback_data' => 'common:menu',
             ],
         ];
@@ -225,7 +257,7 @@ class TelegramKeyboardFactory
             'inline_keyboard' => [
                 [
                     [
-                        'text' => '⬅️ Назад',
+                        'text' => __('telegram.buttons.back'),
                         'callback_data' => 'history:list',
                     ],
                 ],
@@ -239,7 +271,7 @@ class TelegramKeyboardFactory
             'inline_keyboard' => [
                 [
                     [
-                        'text' => '⬅️ Назад',
+                        'text' => __('telegram.buttons.back'),
                         'callback_data' => 'common:menu',
                     ],
                 ],
@@ -253,13 +285,13 @@ class TelegramKeyboardFactory
             'inline_keyboard' => [
                 [
                     [
-                        'text' => '➕ Добавить цель',
+                        'text' => __('telegram.buttons.add_goal'),
                         'callback_data' => 'goals:create',
                     ],
                 ],
                 [
                     [
-                        'text' => '⬅️ Назад',
+                        'text' => __('telegram.buttons.back'),
                         'callback_data' => 'common:menu',
                     ],
                 ],
@@ -297,7 +329,7 @@ class TelegramKeyboardFactory
         return ['inline_keyboard' => $keyboard];
     }
 
-    public function templateDetailActions(): array
+    public function templateDetailActions(int $templateId): array
     {
         return [
             'inline_keyboard' => [
@@ -307,14 +339,112 @@ class TelegramKeyboardFactory
                         'callback_data' => 'templates:list',
                     ],
                     [
-                        'text' => __('telegram.templates.create'),
-                        'callback_data' => 'templates:create',
+                        'text' => __('telegram.buttons.edit'),
+                        'callback_data' => 'templates:edit:'.$templateId,
+                    ],
+                ],
+                [
+                    [
+                        'text' => __('telegram.buttons.delete'),
+                        'callback_data' => 'templates:delete:'.$templateId,
                     ],
                 ],
                 [
                     [
                         'text' => __('telegram.templates.back_to_menu'),
                         'callback_data' => 'common:menu',
+                    ],
+                ],
+            ],
+        ];
+    }
+
+    public function templateEditActions(int $templateId): array
+    {
+        return [
+            'inline_keyboard' => [
+                [
+                    [
+                        'text' => __('telegram.templates.actions.name'),
+                        'callback_data' => 'templates:edit_name:'.$templateId,
+                    ],
+                ],
+                [
+                    [
+                        'text' => __('telegram.templates.actions.description'),
+                        'callback_data' => 'templates:edit_description:'.$templateId,
+                    ],
+                ],
+                [
+                    [
+                        'text' => __('telegram.templates.actions.exercises'),
+                        'callback_data' => 'templates:edit_exercises:'.$templateId,
+                    ],
+                ],
+                [
+                    [
+                        'text' => __('telegram.templates.actions.delete'),
+                        'callback_data' => 'templates:delete:'.$templateId,
+                    ],
+                ],
+                [
+                    [
+                        'text' => __('telegram.buttons.back'),
+                        'callback_data' => 'templates:view:'.$templateId,
+                    ],
+                ],
+            ],
+        ];
+    }
+
+    public function templateExerciseToggleActions(int $templateId, array $exercises, array $selectedExerciseIds): array
+    {
+        $keyboard = [];
+
+        $selected = array_map('intval', $selectedExerciseIds);
+
+        $row = [];
+
+        foreach ($exercises as $exercise) {
+            $isSelected = in_array((int) $exercise['id'], $selected, true);
+
+            $row[] = [
+                'text' => ($isSelected ? __('telegram.templates.selected_mark').' ' : '').$exercise['name'],
+                'callback_data' => 'templates:exercise_toggle:'.$templateId.':'.$exercise['id'],
+            ];
+
+            if (count($row) === 2) {
+                $keyboard[] = $row;
+                $row = [];
+            }
+        }
+
+        if ($row !== []) {
+            $keyboard[] = $row;
+        }
+
+        $keyboard[] = [
+            [
+                'text' => __('telegram.buttons.back'),
+                'callback_data' => 'templates:edit:'.$templateId,
+            ],
+        ];
+
+        return ['inline_keyboard' => $keyboard];
+    }
+
+    public function templateDeleteConfirmActions(int $templateId): array
+    {
+        return [
+            'inline_keyboard' => [
+                [
+                    [
+                        'text' => __('telegram.templates.actions.confirm_delete'),
+                        'callback_data' => 'templates:delete_confirm:'.$templateId,
+                    ],
+                    [
+                        'text' => __('telegram.buttons.back'),
+                        'callback_data' => 'templates:view:'.$templateId,
                     ],
                 ],
             ],
@@ -365,7 +495,7 @@ class TelegramKeyboardFactory
             $isSelected = in_array((int) $group['id'], $selected, true);
 
             $row[] = [
-                'text' => ($isSelected ? '✅ ' : '').$group['name'],
+                'text' => ($isSelected ? __('telegram.templates.selected_mark').' ' : '').$group['name'],
                 'callback_data' => 'templates:group:'.$group['id'],
             ];
 
@@ -410,7 +540,7 @@ class TelegramKeyboardFactory
                     ['text' => __('telegram.goals.types.weekly_workouts'), 'callback_data' => 'goals:type:weekly_workouts'],
                 ],
                 [
-                    ['text' => '⬅️ Назад', 'callback_data' => 'goals:list'],
+                    ['text' => __('telegram.buttons.back'), 'callback_data' => 'goals:list'],
                 ],
             ],
         ];

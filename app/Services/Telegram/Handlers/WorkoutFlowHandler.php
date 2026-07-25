@@ -27,14 +27,31 @@ class WorkoutFlowHandler
     ) {
     }
 
-    public function showTemplates(User $user, int $chatId, ?int $messageId = null): void
+    public function showTemplates(User $user, int $chatId, ?int $messageId = null, string $view = 'custom'): void
     {
-        $templates = $this->workouts->availableTemplates($user)
+        $isStandardView = $view === 'standard';
+
+        $templates = $isStandardView
+            ? $this->workouts->standardTemplates()
+            : $this->workouts->customTemplates($user);
+
+        $templates = $templates
             ->map(fn ($template) => ['id' => $template->id, 'name' => $template->name])
             ->all();
 
-        $text = __('telegram.workout.choose_template');
-        $replyMarkup = ['reply_markup' => $this->keyboards->workoutTemplates($templates)];
+        $text = $isStandardView
+            ? __('telegram.workout.standard_templates_heading')
+            : __('telegram.workout.choose_template');
+
+        if ($templates === []) {
+            $text .= $isStandardView
+                ? "\n\n".__('telegram.workout.no_standard_templates')
+                : "\n\n".__('telegram.workout.no_custom_templates');
+        }
+
+        $replyMarkup = ['reply_markup' => $isStandardView
+            ? $this->keyboards->workoutStandardTemplates($templates)
+            : $this->keyboards->workoutTemplates($templates)];
 
         if ($messageId !== null) {
             $this->bot->editMessageText($chatId, $messageId, $text, $replyMarkup);
@@ -266,16 +283,16 @@ class WorkoutFlowHandler
         }
 
         $lines[] = '';
+        $lines[] = '';
         $lines[] = __('telegram.workout.best_weight', [
-            'weight' => $overview['best_weight'] !== null ? $overview['best_weight'] : '—',
+            'weight' => $overview['best_weight'] !== null ? $overview['best_weight'] : __('telegram.workout.unknown_value'),
         ]);
         $lines[] = __('telegram.workout.best_1rm', [
-            'value' => $overview['best_one_rep_max'] !== null ? number_format($overview['best_one_rep_max'], 1, '.', ' ') : '—',
+            'value' => $overview['best_one_rep_max'] !== null ? number_format($overview['best_one_rep_max'], 1, '.', ' ') : __('telegram.workout.unknown_value'),
         ]);
         $lines[] = __('telegram.workout.recommendation', [
             'weight' => number_format((float) $overview['recommended_weight'], 1, '.', ' '),
         ]);
-
         return implode("\n", $lines);
     }
 
@@ -285,10 +302,10 @@ class WorkoutFlowHandler
         $minutes = intdiv($seconds % 3600, 60);
 
         if ($hours > 0) {
-            return sprintf('%d ч %d мин', $hours, $minutes);
+            return __('telegram.workout.duration_hours_minutes', ['hours' => $hours, 'minutes' => $minutes]);
         }
 
-        return sprintf('%d мин', $minutes);
+        return __('telegram.workout.duration_minutes', ['minutes' => $minutes]);
     }
 
     private function buildForecastText(string $exerciseName, array $forecast): string

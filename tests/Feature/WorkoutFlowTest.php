@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Enums\WorkoutStatus;
 use App\Models\Exercise;
+use App\Models\WorkoutTemplate;
 use App\Models\Workout;
 use App\Models\WorkoutExercise;
 use App\Models\WorkoutSet;
@@ -171,6 +172,7 @@ class WorkoutFlowTest extends TestCase
 
         $this->assertDatabaseHas('workout_sets', [
             'workout_exercise_id' => $workoutExercise->id,
+            'set_number' => 1,
             'weight' => '82.50',
             'repetitions' => 8,
         ]);
@@ -323,6 +325,12 @@ class WorkoutFlowTest extends TestCase
             ],
         ])->assertOk();
 
+        Http::assertSent(function ($request): bool {
+            return str_contains($request->url(), 'editMessageText')
+                && str_contains((string) $request['text'], 'Подход №2')
+                && str_contains((string) $request['text'], 'Всего подходов в упражнении: 2');
+        });
+
         $this->assertDatabaseHas('workout_sets', [
             'workout_exercise_id' => $workoutExercise->id,
             'set_number' => 1,
@@ -338,5 +346,86 @@ class WorkoutFlowTest extends TestCase
             'repetitions' => 6,
             'rpe' => null,
         ]);
+    }
+
+    public function test_workout_start_shows_custom_templates_before_standard_ones(): void
+    {
+        Http::fake([
+            'api.telegram.org/*' => Http::response(['ok' => true, 'result' => []], 200),
+        ]);
+
+        $this->seed();
+
+        $telegramId = 880003;
+        $user = \App\Models\User::query()->create([
+            'telegram_id' => $telegramId,
+            'name' => 'Harut',
+            'email' => null,
+            'telegram_username' => 'harut',
+            'preferred_language' => 'ru',
+            'timezone' => 'Asia/Yerevan',
+            'weight_unit' => 'kg',
+        ]);
+
+        WorkoutTemplate::factory()->forUser($user)->create([
+            'name' => 'Мой шаблон',
+            'is_active' => true,
+        ]);
+
+        $this->postJson('/api/telegram/webhook/test-secret', [
+            'update_id' => 4010,
+            'message' => [
+                'message_id' => 10,
+                'from' => [
+                    'id' => $telegramId,
+                    'first_name' => 'Harut',
+                    'username' => 'harut',
+                ],
+                'chat' => [
+                    'id' => $telegramId,
+                    'type' => 'private',
+                ],
+                'date' => time(),
+                'text' => '/workout',
+            ],
+        ])->assertOk();
+
+        Http::assertSentCount(1);
+
+        Http::assertSent(function ($request): bool {
+            return str_contains($request->url(), 'sendMessage')
+                && str_contains((string) $request['text'], 'Выберите шаблон тренировки')
+                && str_contains((string) $request['reply_markup'], 'Мой шаблон')
+                && str_contains((string) $request['reply_markup'], 'workout:templates:standard');
+        });
+
+        $this->postJson('/api/telegram/webhook/test-secret', [
+            'update_id' => 4011,
+            'callback_query' => [
+                'id' => 'cb-1',
+                'from' => [
+                    'id' => $telegramId,
+                    'first_name' => 'Harut',
+                    'username' => 'harut',
+                ],
+                'message' => [
+                    'message_id' => 10,
+                    'chat' => [
+                        'id' => $telegramId,
+                        'type' => 'private',
+                    ],
+                ],
+                'data' => 'workout:templates:standard',
+            ],
+        ])->assertOk();
+
+        Http::assertSentCount(3);
+
+        Http::assertSent(function ($request): bool {
+            return str_contains($request->url(), 'editMessageText')
+                && str_contains((string) $request['text'], 'Стандартные шаблоны')
+                && str_contains((string) $request['reply_markup'], 'Full Body')
+                && str_contains((string) $request['reply_markup'], 'workout:templates:custom');
+        });
     }
 }

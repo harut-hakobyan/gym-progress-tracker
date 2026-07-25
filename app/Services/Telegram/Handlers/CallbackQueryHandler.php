@@ -80,6 +80,15 @@ class CallbackQueryHandler
             return;
         }
 
+        if ($action === 'templates') {
+            $this->bot->answerCallbackQuery($callbackQueryId);
+
+            $view = $target === 'standard' ? 'standard' : 'custom';
+            $this->workoutFlowHandler->showTemplates($user, $chatId, $messageId, $view);
+
+            return;
+        }
+
         if ($action === 'template') {
             $this->bot->answerCallbackQuery($callbackQueryId);
 

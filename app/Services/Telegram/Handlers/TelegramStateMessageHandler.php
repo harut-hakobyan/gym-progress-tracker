@@ -19,6 +19,7 @@ class TelegramStateMessageHandler
     {
         match ($state->state) {
             TelegramState::AwaitingTemplateName->value,
+            TelegramState::AwaitingTemplateRename->value,
             TelegramState::AwaitingTemplateMuscleGroups->value => $this->templateFlowHandler->handle($user, $message, $state),
             TelegramState::AwaitingSetWeight->value,
             TelegramState::AwaitingSetRepetitions->value => $this->workoutSetInputHandler->handle($user, $message, $state),

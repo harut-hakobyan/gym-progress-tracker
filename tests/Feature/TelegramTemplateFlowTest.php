@@ -6,6 +6,7 @@ use App\Models\Exercise;
 use App\Models\MuscleGroup;
 use App\Models\User;
 use App\Models\WorkoutTemplate;
+use App\Models\WorkoutTemplateExercise;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
@@ -162,5 +163,251 @@ class TelegramTemplateFlowTest extends TestCase
                 'exercise_id' => $exerciseId,
             ]);
         }
+    }
+
+    public function test_user_can_rename_and_delete_own_template_in_telegram(): void
+    {
+        Http::fake([
+            'api.telegram.org/*' => Http::response(['ok' => true, 'result' => []], 200),
+        ]);
+
+        $user = User::factory()->create([
+            'telegram_id' => 880010,
+            'email' => null,
+        ]);
+
+        $template = WorkoutTemplate::factory()->forUser($user)->create([
+            'name' => 'Old name',
+            'description' => 'Old description',
+            'is_active' => true,
+        ]);
+
+        $telegramId = 880010;
+
+        $this->postJson('/api/telegram/webhook/test-secret', [
+            'update_id' => 6001,
+            'callback_query' => [
+                'id' => 'cb-1',
+                'from' => [
+                    'id' => $telegramId,
+                    'first_name' => 'Harut',
+                    'username' => 'harut',
+                ],
+                'message' => [
+                    'message_id' => 10,
+                    'chat' => [
+                        'id' => $telegramId,
+                        'type' => 'private',
+                    ],
+                ],
+                'data' => 'templates:view:'.$template->id,
+            ],
+        ])->assertOk();
+
+        $this->postJson('/api/telegram/webhook/test-secret', [
+            'update_id' => 6002,
+            'callback_query' => [
+                'id' => 'cb-2',
+                'from' => [
+                    'id' => $telegramId,
+                    'first_name' => 'Harut',
+                    'username' => 'harut',
+                ],
+                'message' => [
+                    'message_id' => 10,
+                    'chat' => [
+                        'id' => $telegramId,
+                        'type' => 'private',
+                    ],
+                ],
+                'data' => 'templates:edit:'.$template->id,
+            ],
+        ])->assertOk();
+
+        $this->postJson('/api/telegram/webhook/test-secret', [
+            'update_id' => 6003,
+            'callback_query' => [
+                'id' => 'cb-2b',
+                'from' => [
+                    'id' => $telegramId,
+                    'first_name' => 'Harut',
+                    'username' => 'harut',
+                ],
+                'message' => [
+                    'message_id' => 10,
+                    'chat' => [
+                        'id' => $telegramId,
+                        'type' => 'private',
+                    ],
+                ],
+                'data' => 'templates:edit_name:'.$template->id,
+            ],
+        ])->assertOk();
+
+        $this->postJson('/api/telegram/webhook/test-secret', [
+            'update_id' => 6004,
+            'message' => [
+                'message_id' => 11,
+                'from' => [
+                    'id' => $telegramId,
+                    'first_name' => 'Harut',
+                    'username' => 'harut',
+                ],
+                'chat' => [
+                    'id' => $telegramId,
+                    'type' => 'private',
+                ],
+                'date' => time(),
+                'text' => 'New name',
+            ],
+        ])->assertOk();
+
+        $this->assertDatabaseHas('workout_templates', [
+            'id' => $template->id,
+            'name' => 'New name',
+        ]);
+
+        $this->postJson('/api/telegram/webhook/test-secret', [
+            'update_id' => 6005,
+            'callback_query' => [
+                'id' => 'cb-3',
+                'from' => [
+                    'id' => $telegramId,
+                    'first_name' => 'Harut',
+                    'username' => 'harut',
+                ],
+                'message' => [
+                    'message_id' => 10,
+                    'chat' => [
+                        'id' => $telegramId,
+                        'type' => 'private',
+                    ],
+                ],
+                'data' => 'templates:delete:'.$template->id,
+            ],
+        ])->assertOk();
+
+        $this->postJson('/api/telegram/webhook/test-secret', [
+            'update_id' => 6006,
+            'callback_query' => [
+                'id' => 'cb-4',
+                'from' => [
+                    'id' => $telegramId,
+                    'first_name' => 'Harut',
+                    'username' => 'harut',
+                ],
+                'message' => [
+                    'message_id' => 10,
+                    'chat' => [
+                        'id' => $telegramId,
+                        'type' => 'private',
+                    ],
+                ],
+                'data' => 'templates:delete_confirm:'.$template->id,
+            ],
+        ])->assertOk();
+
+        $this->assertDatabaseMissing('workout_templates', [
+            'id' => $template->id,
+        ]);
+    }
+
+    public function test_user_can_toggle_exercises_in_template_menu(): void
+    {
+        Http::fake([
+            'api.telegram.org/*' => Http::response(['ok' => true, 'result' => []], 200),
+        ]);
+
+        $this->seed();
+
+        $user = User::factory()->create([
+            'telegram_id' => 880011,
+            'email' => null,
+        ]);
+
+        $template = WorkoutTemplate::factory()->forUser($user)->create([
+            'name' => 'Menu template',
+            'description' => null,
+            'is_active' => true,
+        ]);
+
+        $exercise = Exercise::query()->where('is_active', true)->firstOrFail();
+
+        $telegramId = 880011;
+
+        $this->postJson('/api/telegram/webhook/test-secret', [
+            'update_id' => 6101,
+            'callback_query' => [
+                'id' => 'cb-1',
+                'from' => [
+                    'id' => $telegramId,
+                    'first_name' => 'Harut',
+                    'username' => 'harut',
+                ],
+                'message' => [
+                    'message_id' => 10,
+                    'chat' => [
+                        'id' => $telegramId,
+                        'type' => 'private',
+                    ],
+                ],
+                'data' => 'templates:edit_exercises:'.$template->id,
+            ],
+        ])->assertOk();
+
+        $this->postJson('/api/telegram/webhook/test-secret', [
+            'update_id' => 6102,
+            'callback_query' => [
+                'id' => 'cb-2',
+                'from' => [
+                    'id' => $telegramId,
+                    'first_name' => 'Harut',
+                    'username' => 'harut',
+                ],
+                'message' => [
+                    'message_id' => 10,
+                    'chat' => [
+                        'id' => $telegramId,
+                        'type' => 'private',
+                    ],
+                ],
+                'data' => 'templates:exercise_toggle:'.$template->id.':'.$exercise->id,
+            ],
+        ])->assertOk();
+
+        $templateExercise = WorkoutTemplateExercise::query()
+            ->where('workout_template_id', $template->id)
+            ->where('exercise_id', $exercise->id)
+            ->firstOrFail();
+
+        $this->assertDatabaseHas('workout_template_exercises', [
+            'id' => $templateExercise->id,
+            'workout_template_id' => $template->id,
+            'exercise_id' => $exercise->id,
+        ]);
+
+        $this->postJson('/api/telegram/webhook/test-secret', [
+            'update_id' => 6103,
+            'callback_query' => [
+                'id' => 'cb-3',
+                'from' => [
+                    'id' => $telegramId,
+                    'first_name' => 'Harut',
+                    'username' => 'harut',
+                ],
+                'message' => [
+                    'message_id' => 10,
+                    'chat' => [
+                        'id' => $telegramId,
+                        'type' => 'private',
+                    ],
+                ],
+                'data' => 'templates:exercise_toggle:'.$template->id.':'.$exercise->id,
+            ],
+        ])->assertOk();
+
+        $this->assertDatabaseMissing('workout_template_exercises', [
+            'id' => $templateExercise->id,
+        ]);
     }
 }

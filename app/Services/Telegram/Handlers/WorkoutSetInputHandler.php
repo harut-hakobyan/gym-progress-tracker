@@ -140,6 +140,9 @@ class WorkoutSetInputHandler
         $oneRepMax = $this->metrics->estimatedOneRepMax((float) $set->weight, $set->repetitions);
 
         $text = __('telegram.workout.set_saved')."\n\n".
+            'Подход №'.$set->set_number."\n".
+            'Всего подходов в упражнении: '.$set->set_number."\n".
+            "\n".
             __('telegram.workout.weight', ['weight' => $set->weight])."\n".
             __('telegram.workout.repetitions', ['repetitions' => $set->repetitions])."\n".
             __('telegram.workout.volume', ['volume' => number_format($volume, 1, '.', ' ')])."\n".

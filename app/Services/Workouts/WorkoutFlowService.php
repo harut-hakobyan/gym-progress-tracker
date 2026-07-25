@@ -131,6 +131,24 @@ class WorkoutFlowService
             ->get();
     }
 
+    public function customTemplates(User $user): Collection
+    {
+        return WorkoutTemplate::query()
+            ->where('user_id', $user->id)
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get();
+    }
+
+    public function standardTemplates(): Collection
+    {
+        return WorkoutTemplate::query()
+            ->whereNull('user_id')
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get();
+    }
+
     public function templateForUser(User $user, int $templateId): ?WorkoutTemplate
     {
         return WorkoutTemplate::query()

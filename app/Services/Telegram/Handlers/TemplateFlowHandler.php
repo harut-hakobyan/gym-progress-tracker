@@ -11,11 +11,13 @@ use App\Services\Telegram\TelegramBotService;
 use App\Services\Telegram\TelegramKeyboardFactory;
 use App\Services\Telegram\TelegramStateService;
 use App\Services\Templates\WorkoutTemplateService;
+use App\Services\Workouts\WorkoutFlowService;
 
 class TemplateFlowHandler
 {
     public function __construct(
         private readonly WorkoutTemplateService $templates,
+        private readonly WorkoutFlowService $workouts,
         private readonly TelegramStateService $stateService,
         private readonly TelegramBotService $bot,
         private readonly TelegramKeyboardFactory $keyboards,
@@ -43,7 +45,7 @@ class TemplateFlowHandler
             $text .= "\n\n";
 
             foreach ($templates as $template) {
-                $text .= '• '.$template['name'].' — '.$template['count']."\n";
+                $text .= __('telegram.templates.list_item', ['name' => $template['name'], 'count' => $template['count']])."\n";
             }
         }
 
@@ -74,6 +76,18 @@ class TemplateFlowHandler
             return;
         }
 
+        if ($state->state === TelegramState::AwaitingTemplateRename->value) {
+            $this->handleRename($user, $chatId, $text, $state);
+
+            return;
+        }
+
+        if ($state->state === TelegramState::AwaitingTemplateDescription->value) {
+            $this->handleDescription($user, $chatId, $text, $state);
+
+            return;
+        }
+
         if ($state->state === TelegramState::AwaitingTemplateMuscleGroups->value) {
             $this->bot->sendMessage($chatId, __('telegram.templates.choose_groups_reminder'), [
                 'reply_markup' => $this->keyboards->cancelOnly(),
@@ -98,6 +112,48 @@ class TemplateFlowHandler
 
         if ($action === 'view' && $target !== null) {
             $this->showTemplate($user, $chatId, $messageId, (int) $target);
+
+            return;
+        }
+
+        if ($action === 'edit' && $target !== null) {
+            $this->showEditMenu($user, $chatId, $messageId, (int) $target);
+
+            return;
+        }
+
+        if ($action === 'edit_name' && $target !== null) {
+            $this->startRename($user, $chatId, $messageId, (int) $target);
+
+            return;
+        }
+
+        if ($action === 'edit_description' && $target !== null) {
+            $this->startDescription($user, $chatId, $messageId, (int) $target);
+
+            return;
+        }
+
+        if ($action === 'edit_exercises' && $target !== null) {
+            $this->showExerciseManager($user, $chatId, $messageId, (int) $target);
+
+            return;
+        }
+
+        if ($action === 'exercise_toggle' && $target !== null && $tail !== null) {
+            $this->toggleExerciseInTemplate($user, $chatId, $messageId, (int) $target, (int) $tail);
+
+            return;
+        }
+
+        if ($action === 'delete' && $target !== null) {
+            $this->showDeleteConfirm($user, $chatId, $messageId, (int) $target);
+
+            return;
+        }
+
+        if ($action === 'delete_confirm' && $target !== null) {
+            $this->deleteTemplate($user, $chatId, $messageId, (int) $target);
 
             return;
         }
@@ -244,6 +300,237 @@ class TemplateFlowHandler
         $this->showTemplateList($user, $chatId, $messageId, $summary);
     }
 
+    private function startRename(User $user, int $chatId, int $messageId, int $templateId): void
+    {
+        $template = $user->workoutTemplates()->find($templateId);
+
+        if ($template === null) {
+            $this->bot->editMessageText($chatId, $messageId, __('telegram.templates.not_found'), [
+                'reply_markup' => $this->keyboards->templateManager([]),
+            ]);
+
+            return;
+        }
+
+        $this->stateService->put($user, TelegramState::AwaitingTemplateRename, [
+            'message_id' => $messageId,
+            'template_id' => $template->id,
+        ]);
+
+        $this->bot->editMessageText($chatId, $messageId, __('telegram.templates.rename_prompt'), [
+            'reply_markup' => $this->keyboards->cancelOnly(),
+        ]);
+    }
+
+    private function startDescription(User $user, int $chatId, int $messageId, int $templateId): void
+    {
+        $template = $user->workoutTemplates()->find($templateId);
+
+        if ($template === null) {
+            $this->bot->editMessageText($chatId, $messageId, __('telegram.templates.not_found'), [
+                'reply_markup' => $this->keyboards->templateManager([]),
+            ]);
+
+            return;
+        }
+
+        $this->stateService->put($user, TelegramState::AwaitingTemplateDescription, [
+            'message_id' => $messageId,
+            'template_id' => $template->id,
+        ]);
+
+        $this->bot->editMessageText($chatId, $messageId, __('telegram.templates.description_prompt'), [
+            'reply_markup' => $this->keyboards->cancelOnly(),
+        ]);
+    }
+
+    private function handleRename(User $user, int $chatId, string $text, UserTelegramState $state): void
+    {
+        $templateId = (int) data_get($state->payload, 'template_id');
+        $template = $user->workoutTemplates()->find($templateId);
+
+        if ($template === null) {
+            $this->stateService->forget($user);
+            $this->bot->sendMessage($chatId, __('telegram.templates.not_found'));
+
+            return;
+        }
+
+        $name = $this->templates->normalizeName($text);
+
+        if ($name === '') {
+            $this->bot->sendMessage($chatId, __('telegram.templates.invalid_name'), [
+                'reply_markup' => $this->keyboards->cancelOnly(),
+            ]);
+
+            return;
+        }
+
+        $template = $this->templates->updateTemplate($template, [
+            'name' => $name,
+        ]);
+
+        $this->stateService->forget($user);
+
+        $this->showEditMenu($user, $chatId, (int) data_get($state->payload, 'message_id'), $template->id);
+    }
+
+    private function handleDescription(User $user, int $chatId, string $text, UserTelegramState $state): void
+    {
+        $templateId = (int) data_get($state->payload, 'template_id');
+        $template = $user->workoutTemplates()->find($templateId);
+
+        if ($template === null) {
+            $this->stateService->forget($user);
+            $this->bot->sendMessage($chatId, __('telegram.templates.not_found'));
+
+            return;
+        }
+
+        $description = trim($text);
+        $description = $description === '-' ? null : $description;
+        $description = $description === '' ? null : $description;
+
+        $template = $this->templates->updateDescription($template, $description);
+
+        $this->stateService->forget($user);
+
+        $this->showEditMenu($user, $chatId, (int) data_get($state->payload, 'message_id'), $template->id);
+    }
+
+    private function showDeleteConfirm(User $user, int $chatId, int $messageId, int $templateId): void
+    {
+        $template = $user->workoutTemplates()->find($templateId);
+
+        if ($template === null) {
+            $this->bot->editMessageText($chatId, $messageId, __('telegram.templates.not_found'), [
+                'reply_markup' => $this->keyboards->templateManager([]),
+            ]);
+
+            return;
+        }
+
+        $this->bot->editMessageText($chatId, $messageId, __('telegram.templates.delete_confirm', ['name' => $template->name]), [
+            'reply_markup' => $this->keyboards->templateDeleteConfirmActions($template->id),
+        ]);
+    }
+
+    private function deleteTemplate(User $user, int $chatId, int $messageId, int $templateId): void
+    {
+        $template = $user->workoutTemplates()->find($templateId);
+
+        if ($template === null) {
+            $this->bot->editMessageText($chatId, $messageId, __('telegram.templates.not_found'), [
+                'reply_markup' => $this->keyboards->templateManager([]),
+            ]);
+
+            return;
+        }
+
+        $name = $template->name;
+        $this->templates->deleteTemplate($template);
+        $this->stateService->forget($user);
+
+        $this->showTemplateList($user, $chatId, $messageId, __('telegram.templates.deleted', ['name' => $name]));
+    }
+
+    private function showEditMenu(User $user, int $chatId, int $messageId, int $templateId): void
+    {
+        $template = $user->workoutTemplates()
+            ->withCount('templateExercises')
+            ->find($templateId);
+
+        if ($template === null) {
+            $this->bot->editMessageText($chatId, $messageId, __('telegram.templates.not_found'), [
+                'reply_markup' => $this->keyboards->templateManager([]),
+            ]);
+
+            return;
+        }
+
+        $lines = [
+            __('telegram.templates.edit_title'),
+            $template->name,
+            __('telegram.templates.exercise_count', ['count' => $template->template_exercises_count]),
+        ];
+
+        if ($template->description !== null && $template->description !== '') {
+            $lines[] = $template->description;
+        }
+
+        $this->bot->editMessageText($chatId, $messageId, implode("\n", $lines), [
+            'reply_markup' => $this->keyboards->templateEditActions($template->id),
+        ]);
+    }
+
+    private function showExerciseManager(User $user, int $chatId, int $messageId, int $templateId): void
+    {
+        $template = $user->workoutTemplates()
+            ->with(['templateExercises.exercise'])
+            ->find($templateId);
+
+        if ($template === null) {
+            $this->bot->editMessageText($chatId, $messageId, __('telegram.templates.not_found'), [
+                'reply_markup' => $this->keyboards->templateManager([]),
+            ]);
+
+            return;
+        }
+
+        $lines = [
+            __('telegram.templates.exercises_title'),
+            $template->name,
+        ];
+
+        $selectedExerciseIds = $template->templateExercises
+            ->pluck('exercise_id')
+            ->map(fn ($id) => (int) $id)
+            ->values()
+            ->all();
+
+        $exercises = $this->workouts->availableExercises($user)
+            ->map(fn ($exercise) => [
+                'id' => $exercise->id,
+                'name' => $exercise->name,
+            ])
+            ->all();
+
+        if ($selectedExerciseIds === []) {
+            $lines[] = '';
+            $lines[] = __('telegram.templates.no_exercises');
+        }
+
+        $this->bot->editMessageText($chatId, $messageId, implode("\n", $lines), [
+            'reply_markup' => $this->keyboards->templateExerciseToggleActions($template->id, $exercises, $selectedExerciseIds),
+        ]);
+    }
+
+    private function toggleExerciseInTemplate(User $user, int $chatId, int $messageId, int $templateId, int $exerciseId): void
+    {
+        $template = $user->workoutTemplates()
+            ->with(['templateExercises.exercise'])
+            ->find($templateId);
+        $exercise = $this->workouts->exerciseForUser($user, $exerciseId);
+
+        if ($template === null || $exercise === null) {
+            $this->bot->editMessageText($chatId, $messageId, __('telegram.templates.not_found'), [
+                'reply_markup' => $this->keyboards->templateManager([]),
+            ]);
+
+            return;
+        }
+
+        $templateExercise = $template->templateExercises->firstWhere('exercise_id', $exercise->id);
+
+        if ($templateExercise !== null) {
+            $this->templates->removeExercise($templateExercise);
+        } else {
+            $this->templates->addExercise($template, $exercise);
+        }
+
+        $this->showExerciseManager($user, $chatId, $messageId, $template->id);
+    }
+
     private function showTemplate(User $user, int $chatId, int $messageId, int $templateId): void
     {
         $template = $user->workoutTemplates()
@@ -272,11 +559,11 @@ class TemplateFlowHandler
         $lines[] = __('telegram.templates.exercise_count', ['count' => $template->templateExercises->count()]);
 
         foreach ($template->templateExercises as $templateExercise) {
-            $lines[] = '• '.$templateExercise->exercise->name.' — '.$templateExercise->exercise->muscleGroup->name;
+            $lines[] = __('telegram.templates.exercise_row', ['name' => $templateExercise->exercise->name, 'group' => $templateExercise->exercise->muscleGroup->name]);
         }
 
         $this->bot->editMessageText($chatId, $messageId, implode("\n", $lines), [
-            'reply_markup' => $this->keyboards->templateDetailActions(),
+            'reply_markup' => $this->keyboards->templateDetailActions($template->id),
         ]);
     }
 
