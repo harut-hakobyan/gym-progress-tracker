@@ -887,15 +887,16 @@ class TemplateFlowHandler
         ?int $dayOfWeek
     ): void {
         $exercises = Exercise::query()
-            ->with('muscleGroup')
+            ->with('muscleGroup:id,name')
             ->whereIn('muscle_group_id', $selectedGroupIds)
             ->where('is_active', true)
             ->where(fn ($query) => $query->whereNull('user_id')->orWhere('user_id', $user->id))
-            ->orderBy('name')
             ->get()
+            ->sortBy(fn (Exercise $exercise) => [strtolower($exercise->muscleGroup?->name ?? ''), strtolower($exercise->name)])
             ->map(fn (Exercise $exercise) => [
                 'id' => $exercise->id,
                 'name' => $exercise->name,
+                'group' => $exercise->muscleGroup?->name ?? '',
             ])
             ->all();
 

@@ -662,9 +662,20 @@ class TelegramKeyboardFactory
     {
         $keyboard = [];
         $selected = array_map('intval', $selectedExerciseIds);
+        $currentGroup = null;
 
         foreach ($exercises as $exercise) {
+            $group = trim((string) ($exercise['group'] ?? ''));
             $isSelected = in_array((int) $exercise['id'], $selected, true);
+
+            if ($group !== '' && $group !== $currentGroup) {
+                $keyboard[] = [[
+                    'text' => '— '.$group.' —',
+                    'callback_data' => 'templates:noop',
+                ]];
+
+                $currentGroup = $group;
+            }
 
             $keyboard[] = [[
                 'text' => ($isSelected ? __('telegram.templates.selected_mark').' ' : '').$exercise['name'],
