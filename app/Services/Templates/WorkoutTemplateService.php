@@ -131,6 +131,7 @@ class WorkoutTemplateService
 
         return DB::transaction(function () use ($user, $name, $groupIds, $description, $dayOfWeek): WorkoutTemplate {
             $groups = MuscleGroup::query()
+                ->with('translations')
                 ->whereIn('id', $groupIds)
                 ->get()
                 ->keyBy('id');
@@ -147,7 +148,7 @@ class WorkoutTemplateService
 
             foreach ($groupIds as $groupId) {
                 Exercise::query()
-                    ->with('muscleGroup')
+                    ->with(['muscleGroup.translations', 'translations'])
                     ->where('muscle_group_id', $groupId)
                     ->where('is_active', true)
                     ->where(fn ($query) => $query->whereNull('user_id')->orWhere('user_id', $user->id))

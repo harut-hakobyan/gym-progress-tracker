@@ -396,7 +396,7 @@ class TemplateFlowHandler
         }
 
         $selected = MuscleGroup::query()
-            ->whereIn('name', $groupNames)
+            ->whereIn('slug', $groupNames)
             ->pluck('id')
             ->all();
 
@@ -493,7 +493,13 @@ class TemplateFlowHandler
         $template = $this->templates->createTemplate(
             $user,
             (string) data_get($state->payload, 'template_name', 'Workout'),
-            implode(' + ', MuscleGroup::query()->whereIn('id', $selectedGroupIds)->orderBy('name')->pluck('name')->all()) ?: null,
+            implode(' + ', MuscleGroup::query()
+                ->whereIn('id', $selectedGroupIds)
+                ->with('translations')
+                ->get()
+                ->sortBy(fn (MuscleGroup $group) => strtolower($group->name))
+                ->pluck('name')
+                ->all()) ?: null,
             $this->normalizeDayOfWeek(data_get($state->payload, 'day_of_week')),
         );
 
@@ -514,11 +520,11 @@ class TemplateFlowHandler
     private function attachSelectedExercisesToTemplate(WorkoutTemplate $template, array $selectedExerciseIds, User $user): void
     {
         $exercises = Exercise::query()
-            ->with('muscleGroup')
+            ->with(['muscleGroup.translations', 'translations'])
             ->whereIn('id', $selectedExerciseIds)
             ->where('is_active', true)
             ->where(fn ($query) => $query->whereNull('user_id')->orWhere('user_id', $user->id))
-            ->orderBy('name')
+            ->orderBy('slug')
             ->get()
             ->keyBy('id');
 
@@ -848,7 +854,8 @@ class TemplateFlowHandler
     private function showGroupSelection(int $chatId, int $messageId, string $name, array $selectedGroupIds, ?int $dayOfWeek = null): void
     {
         $groups = MuscleGroup::query()
-            ->orderBy('name')
+            ->with('translations')
+            ->orderBy('slug')
             ->get()
             ->map(fn (MuscleGroup $group) => [
                 'id' => $group->id,
@@ -858,7 +865,8 @@ class TemplateFlowHandler
 
         $selectedNames = MuscleGroup::query()
             ->whereIn('id', $selectedGroupIds)
-            ->orderBy('name')
+            ->get()
+            ->sortBy(fn (MuscleGroup $group) => strtolower($group->name))
             ->pluck('name')
             ->all();
 
@@ -887,7 +895,7 @@ class TemplateFlowHandler
         ?int $dayOfWeek
     ): void {
         $exercises = Exercise::query()
-            ->with('muscleGroup:id,name')
+            ->with(['muscleGroup.translations', 'translations'])
             ->whereIn('muscle_group_id', $selectedGroupIds)
             ->where('is_active', true)
             ->where(fn ($query) => $query->whereNull('user_id')->orWhere('user_id', $user->id))
@@ -902,7 +910,8 @@ class TemplateFlowHandler
 
         $selectedNames = MuscleGroup::query()
             ->whereIn('id', $selectedGroupIds)
-            ->orderBy('name')
+            ->get()
+            ->sortBy(fn (MuscleGroup $group) => strtolower($group->name))
             ->pluck('name')
             ->all();
 
@@ -914,9 +923,10 @@ class TemplateFlowHandler
 
         if ($selectedExerciseIds !== []) {
             $selectedExerciseNames = Exercise::query()
+                ->with('translations')
                 ->whereIn('id', $selectedExerciseIds)
-                ->orderBy('name')
-                ->get(['name', 'media_type', 'media_value'])
+                ->orderBy('slug')
+                ->get(['id', 'name', 'media_type', 'media_value'])
                 ->map(fn (Exercise $exercise) => $this->exerciseDisplayName($exercise->name, $exercise->media_type, $exercise->media_value))
                 ->all();
 

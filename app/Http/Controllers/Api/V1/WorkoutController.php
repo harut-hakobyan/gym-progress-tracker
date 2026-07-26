@@ -30,7 +30,7 @@ class WorkoutController extends Controller
     public function index(Request $request): JsonResponse
     {
         $workouts = Workout::query()
-            ->with(['workoutExercises.exercise', 'workoutExercises.sets'])
+            ->with(['workoutExercises.exercise.translations', 'workoutExercises.exercise.muscleGroup.translations', 'workoutExercises.sets'])
             ->where('user_id', $request->user()->id)
             ->latest('started_at')
             ->paginate(15);
@@ -77,7 +77,7 @@ class WorkoutController extends Controller
     {
         $this->authorize('view', $workout);
 
-        return new WorkoutResource($workout->loadMissing(['workoutExercises.exercise', 'workoutExercises.sets']));
+        return new WorkoutResource($workout->loadMissing(['workoutExercises.exercise.translations', 'workoutExercises.exercise.muscleGroup.translations', 'workoutExercises.sets']));
     }
 
     public function update(WorkoutUpdateRequest $request, Workout $workout): WorkoutResource
@@ -90,7 +90,7 @@ class WorkoutController extends Controller
             'notes' => $request->input('notes', $workout->notes),
         ]);
 
-        return new WorkoutResource($workout->refresh()->loadMissing(['workoutExercises.exercise', 'workoutExercises.sets']));
+        return new WorkoutResource($workout->refresh()->loadMissing(['workoutExercises.exercise.translations', 'workoutExercises.exercise.muscleGroup.translations', 'workoutExercises.sets']));
     }
 
     public function destroy(Request $request, Workout $workout): JsonResponse
@@ -111,7 +111,7 @@ class WorkoutController extends Controller
             'started_at' => $workout->started_at ?? now(),
         ]);
 
-        return new WorkoutResource($workout->refresh()->loadMissing(['workoutExercises.exercise', 'workoutExercises.sets']));
+        return new WorkoutResource($workout->refresh()->loadMissing(['workoutExercises.exercise.translations', 'workoutExercises.exercise.muscleGroup.translations', 'workoutExercises.sets']));
     }
 
     public function complete(Request $request, Workout $workout): WorkoutResource
@@ -120,7 +120,7 @@ class WorkoutController extends Controller
 
         $this->workouts->completeWorkout($workout);
 
-        return new WorkoutResource($workout->refresh()->loadMissing(['workoutExercises.exercise', 'workoutExercises.sets']));
+        return new WorkoutResource($workout->refresh()->loadMissing(['workoutExercises.exercise.translations', 'workoutExercises.exercise.muscleGroup.translations', 'workoutExercises.sets']));
     }
 
     public function addExercise(WorkoutExerciseStoreRequest $request, Workout $workout): WorkoutResource
@@ -147,6 +147,6 @@ class WorkoutController extends Controller
             );
         });
 
-        return new WorkoutResource($workout->refresh()->loadMissing(['workoutExercises.exercise', 'workoutExercises.sets']));
+        return new WorkoutResource($workout->refresh()->loadMissing(['workoutExercises.exercise.translations', 'workoutExercises.exercise.muscleGroup.translations', 'workoutExercises.sets']));
     }
 }

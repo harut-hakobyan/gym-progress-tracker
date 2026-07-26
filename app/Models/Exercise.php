@@ -30,6 +30,11 @@ class Exercise extends Model
         'is_active' => 'boolean',
     ];
 
+    public function translations(): HasMany
+    {
+        return $this->hasMany(ExerciseTranslation::class);
+    }
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
@@ -53,5 +58,69 @@ class Exercise extends Model
     public function personalRecords(): HasMany
     {
         return $this->hasMany(PersonalRecord::class);
+    }
+
+    public function getNameAttribute(?string $value): string
+    {
+        return $this->translatedName() ?? (string) $value;
+    }
+
+    public function getDescriptionAttribute(?string $value): ?string
+    {
+        $translated = $this->translatedDescription();
+
+        return $translated !== null ? $translated : $value;
+    }
+
+    public function translatedName(?string $locale = null): ?string
+    {
+        $locale ??= app()->getLocale();
+        $translations = $this->relationLoaded('translations')
+            ? $this->getRelation('translations')
+            : $this->translations()->get();
+
+        $translation = $translations->firstWhere('locale', $locale);
+
+        if ($translation !== null && trim((string) $translation->name) !== '') {
+            return (string) $translation->name;
+        }
+
+        $fallbackLocale = (string) config('app.fallback_locale', config('app.locale', 'en'));
+
+        if ($fallbackLocale !== $locale) {
+            $fallback = $translations->firstWhere('locale', $fallbackLocale);
+
+            if ($fallback !== null && trim((string) $fallback->name) !== '') {
+                return (string) $fallback->name;
+            }
+        }
+
+        return null;
+    }
+
+    public function translatedDescription(?string $locale = null): ?string
+    {
+        $locale ??= app()->getLocale();
+        $translations = $this->relationLoaded('translations')
+            ? $this->getRelation('translations')
+            : $this->translations()->get();
+
+        $translation = $translations->firstWhere('locale', $locale);
+
+        if ($translation !== null && trim((string) $translation->description) !== '') {
+            return (string) $translation->description;
+        }
+
+        $fallbackLocale = (string) config('app.fallback_locale', config('app.locale', 'en'));
+
+        if ($fallbackLocale !== $locale) {
+            $fallback = $translations->firstWhere('locale', $fallbackLocale);
+
+            if ($fallback !== null && trim((string) $fallback->description) !== '') {
+                return (string) $fallback->description;
+            }
+        }
+
+        return null;
     }
 }

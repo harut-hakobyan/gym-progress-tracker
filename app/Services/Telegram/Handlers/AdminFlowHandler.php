@@ -183,8 +183,9 @@ class AdminFlowHandler
         }
 
         $groups = MuscleGroup::query()
+            ->with('translations')
             ->withCount(['exercises as active_exercises_count' => fn ($query) => $query->where('is_active', true)])
-            ->orderBy('name')
+            ->orderBy('slug')
             ->get()
             ->map(fn (MuscleGroup $group) => [
                 'id' => $group->id,
@@ -210,7 +211,7 @@ class AdminFlowHandler
             return;
         }
 
-        $group = MuscleGroup::query()->find($groupId);
+        $group = MuscleGroup::query()->with('translations')->find($groupId);
 
         if ($group === null) {
             $this->bot->editMessageText($chatId, $messageId, __('telegram.admin.group_not_found'), [
@@ -221,8 +222,9 @@ class AdminFlowHandler
         }
 
         $exercises = Exercise::query()
+            ->with(['translations', 'muscleGroup.translations'])
             ->where('muscle_group_id', $group->id)
-            ->orderBy('name')
+            ->orderBy('slug')
             ->get()
             ->map(fn (Exercise $exercise) => [
                 'id' => $exercise->id,
@@ -255,8 +257,8 @@ class AdminFlowHandler
             return;
         }
 
-        $group = MuscleGroup::query()->find($groupId);
-        $exercise = Exercise::query()->find($exerciseId);
+        $group = MuscleGroup::query()->with('translations')->find($groupId);
+        $exercise = Exercise::query()->with(['translations', 'muscleGroup.translations'])->find($exerciseId);
 
         if ($group === null || $exercise === null || (int) $exercise->muscle_group_id !== $group->id) {
             $this->bot->editMessageText($chatId, $messageId, __('telegram.admin.group_not_found'), [
@@ -285,7 +287,7 @@ class AdminFlowHandler
             return;
         }
 
-        $group = MuscleGroup::query()->find($groupId);
+        $group = MuscleGroup::query()->with('translations')->find($groupId);
 
         if ($group === null) {
             $this->bot->editMessageText($chatId, $messageId, __('telegram.admin.group_not_found'), [
@@ -311,8 +313,8 @@ class AdminFlowHandler
             return;
         }
 
-        $group = MuscleGroup::query()->find($groupId);
-        $exercise = Exercise::query()->find($exerciseId);
+        $group = MuscleGroup::query()->with('translations')->find($groupId);
+        $exercise = Exercise::query()->with(['translations', 'muscleGroup.translations'])->find($exerciseId);
 
         if ($group === null || $exercise === null || (int) $exercise->muscle_group_id !== $group->id) {
             $this->bot->editMessageText($chatId, $messageId, __('telegram.admin.group_not_found'), [
@@ -343,8 +345,8 @@ class AdminFlowHandler
             return;
         }
 
-        $group = MuscleGroup::query()->find($groupId);
-        $exercise = Exercise::query()->find($exerciseId);
+        $group = MuscleGroup::query()->with('translations')->find($groupId);
+        $exercise = Exercise::query()->with(['translations', 'muscleGroup.translations'])->find($exerciseId);
 
         if ($group === null || $exercise === null || (int) $exercise->muscle_group_id !== $group->id) {
             $this->bot->editMessageText($chatId, $messageId, __('telegram.admin.group_not_found'), [

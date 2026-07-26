@@ -26,7 +26,13 @@ class WorkoutFlowService
     public function activeWorkout(User $user): ?Workout
     {
         return Workout::query()
-            ->with(['template.templateExercises.exercise', 'workoutExercises.exercise', 'workoutExercises.sets'])
+            ->with([
+                'template.templateExercises.exercise.translations',
+                'template.templateExercises.exercise.muscleGroup.translations',
+                'workoutExercises.exercise.translations',
+                'workoutExercises.exercise.muscleGroup.translations',
+                'workoutExercises.sets',
+            ])
             ->where('user_id', $user->id)
             ->where('status', WorkoutStatus::Active)
             ->latest('started_at')
@@ -120,7 +126,10 @@ class WorkoutFlowService
 
     public function workoutExercises(Workout $workout): Collection
     {
-        return $workout->workoutExercises()->with('exercise', 'sets')->orderBy('position')->get();
+        return $workout->workoutExercises()
+            ->with(['exercise.translations', 'exercise.muscleGroup.translations', 'sets'])
+            ->orderBy('position')
+            ->get();
     }
 
     public function availableTemplates(User $user): Collection
@@ -162,16 +171,20 @@ class WorkoutFlowService
     public function availableExercises(User $user): Collection
     {
         return Exercise::query()
-            ->with('muscleGroup')
+            ->with(['muscleGroup.translations', 'translations'])
             ->where('is_active', true)
             ->where(fn ($query) => $query->whereNull('user_id')->orWhere('user_id', $user->id))
-            ->orderBy('name')
-            ->get();
+            ->get()
+            ->sortBy(fn (Exercise $exercise) => [strtolower($exercise->muscleGroup?->name ?? ''), strtolower($exercise->name)])
+            ->values();
     }
 
     public function availableExercisesForWorkout(User $user, Workout $workout): Collection
     {
-        $workout->loadMissing(['template.templateExercises.exercise.muscleGroup']);
+        $workout->loadMissing([
+            'template.templateExercises.exercise.translations',
+            'template.templateExercises.exercise.muscleGroup.translations',
+        ]);
 
         if ($workout->template === null) {
             return $this->availableExercises($user);
@@ -190,7 +203,10 @@ class WorkoutFlowService
             return $this->exerciseForUser($user, $exerciseId);
         }
 
-        $workout->loadMissing(['template.templateExercises.exercise']);
+        $workout->loadMissing([
+            'template.templateExercises.exercise.translations',
+            'template.templateExercises.exercise.muscleGroup.translations',
+        ]);
 
         $exercise = $workout->template?->templateExercises
             ->pluck('exercise')
@@ -322,7 +338,7 @@ class WorkoutFlowService
         return WorkoutExercise::query()
             ->whereKey($workoutExerciseId)
             ->whereHas('workout', fn ($query) => $query->where('user_id', $user->id))
-            ->with(['exercise', 'sets'])
+            ->with(['exercise.translations', 'exercise.muscleGroup.translations', 'sets'])
             ->first();
     }
 
@@ -331,7 +347,11 @@ class WorkoutFlowService
         return Workout::query()
             ->whereKey($workoutId)
             ->where('user_id', $user->id)
-            ->with(['workoutExercises.exercise', 'workoutExercises.sets'])
+            ->with([
+                'workoutExercises.exercise.translations',
+                'workoutExercises.exercise.muscleGroup.translations',
+                'workoutExercises.sets',
+            ])
             ->first();
     }
 

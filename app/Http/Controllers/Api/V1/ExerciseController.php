@@ -19,11 +19,12 @@ class ExerciseController extends Controller
         $user = $request->user();
 
         $exercises = Exercise::query()
-            ->with('muscleGroup')
+            ->with(['muscleGroup.translations', 'translations'])
             ->where('is_active', true)
             ->where(fn ($query) => $query->whereNull('user_id')->orWhere('user_id', $user->id))
-            ->orderBy('name')
-            ->get();
+            ->get()
+            ->sortBy(fn (Exercise $exercise) => [strtolower($exercise->muscleGroup?->name ?? ''), strtolower($exercise->name)])
+            ->values();
 
         return response()->json([
             'data' => ExerciseResource::collection($exercises),
@@ -47,7 +48,7 @@ class ExerciseController extends Controller
             'is_active' => (bool) $request->boolean('is_active', true),
         ]);
 
-        $exercise->load('muscleGroup');
+        $exercise->load(['muscleGroup.translations', 'translations']);
 
         return response()->json([
             'data' => new ExerciseResource($exercise),
@@ -58,7 +59,7 @@ class ExerciseController extends Controller
     {
         $this->authorize('view', $exercise);
 
-        return new ExerciseResource($exercise->load('muscleGroup'));
+        return new ExerciseResource($exercise->load(['muscleGroup.translations', 'translations']));
     }
 
     public function update(ExerciseUpdateRequest $request, Exercise $exercise): ExerciseResource
@@ -76,7 +77,7 @@ class ExerciseController extends Controller
             'is_active' => $request->has('is_active') ? (bool) $request->boolean('is_active') : $exercise->is_active,
         ]);
 
-        return new ExerciseResource($exercise->load('muscleGroup'));
+        return new ExerciseResource($exercise->load(['muscleGroup.translations', 'translations']));
     }
 
     public function destroy(Request $request, Exercise $exercise): JsonResponse

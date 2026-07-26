@@ -11,6 +11,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
             MuscleGroupSeeder::class,
             ExerciseSeeder::class,
+            LocalizedCatalogSeeder::class,
             WorkoutTemplateSeeder::class,
         ]);
     }
