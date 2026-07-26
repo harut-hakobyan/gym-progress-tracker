@@ -7,6 +7,7 @@ use App\Http\Requests\Api\V1\ExerciseStoreRequest;
 use App\Http\Requests\Api\V1\ExerciseUpdateRequest;
 use App\Http\Resources\Api\V1\ExerciseResource;
 use App\Models\Exercise;
+use App\Services\Exercises\ExerciseTranslationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -14,6 +15,11 @@ use Symfony\Component\HttpFoundation\Response;
 
 class ExerciseController extends Controller
 {
+    public function __construct(
+        private readonly ExerciseTranslationService $translations,
+    ) {
+    }
+
     public function index(Request $request): JsonResponse
     {
         $user = $request->user();
@@ -48,6 +54,8 @@ class ExerciseController extends Controller
             'is_active' => (bool) $request->boolean('is_active', true),
         ]);
 
+        $this->translations->syncTranslations($exercise, (array) $request->input('translations', []));
+
         $exercise->load(['muscleGroup.translations', 'translations']);
 
         return response()->json([
@@ -76,6 +84,8 @@ class ExerciseController extends Controller
             'is_custom' => $request->has('is_custom') ? (bool) $request->boolean('is_custom') : $exercise->is_custom,
             'is_active' => $request->has('is_active') ? (bool) $request->boolean('is_active') : $exercise->is_active,
         ]);
+
+        $this->translations->syncTranslations($exercise, (array) $request->input('translations', []));
 
         return new ExerciseResource($exercise->load(['muscleGroup.translations', 'translations']));
     }

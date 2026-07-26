@@ -377,6 +377,20 @@ class CallbackQueryHandler
             return;
         }
 
+        if ($action === 'translations' && $target !== null && $tail !== null) {
+            $this->bot->answerCallbackQuery($callbackQueryId);
+            $this->adminFlowHandler->showExerciseTranslationsMenu($user, $chatId, $messageId, (int) $target, (int) $tail);
+
+            return;
+        }
+
+        if ($action === 'translation' && $target !== null && $tail !== null && $kind !== null) {
+            $this->bot->answerCallbackQuery($callbackQueryId);
+            $this->adminFlowHandler->startExerciseTranslation($user, $chatId, $messageId, (int) $target, (int) $tail, $kind);
+
+            return;
+        }
+
         if ($action === 'toggle' && $target !== null && $tail !== null) {
             $this->bot->answerCallbackQuery($callbackQueryId);
             $this->adminFlowHandler->toggleExercise($user, $chatId, $messageId, (int) $target, (int) $tail);

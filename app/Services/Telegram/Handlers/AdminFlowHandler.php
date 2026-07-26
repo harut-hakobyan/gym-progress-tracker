@@ -7,6 +7,7 @@ use App\Models\Exercise;
 use App\Models\MuscleGroup;
 use App\Models\User;
 use App\Models\UserTelegramState;
+use App\Services\Exercises\ExerciseTranslationService;
 use App\Services\Telegram\TelegramAccessService;
 use App\Services\Telegram\TelegramBotService;
 use App\Services\Telegram\TelegramKeyboardFactory;
@@ -20,6 +21,7 @@ class AdminFlowHandler
         private readonly TelegramStateService $stateService,
         private readonly TelegramBotService $bot,
         private readonly TelegramKeyboardFactory $keyboards,
+        private readonly ExerciseTranslationService $translations,
     ) {
     }
 
@@ -64,6 +66,12 @@ class AdminFlowHandler
 
         if ($state->state === TelegramState::AwaitingAdminExerciseName->value) {
             $this->handleExerciseName($user, $message, $state);
+
+            return;
+        }
+
+        if ($state->state === TelegramState::AwaitingAdminExerciseTranslation->value) {
+            $this->handleExerciseTranslation($user, $message, $state);
 
             return;
         }
@@ -114,9 +122,99 @@ class AdminFlowHandler
             ]
         );
 
-        $this->stateService->forget($user);
+        $locales = $this->translations->orderedLocales(app()->getLocale());
+        $this->translations->upsertTranslation($exercise, $locales[0] ?? app()->getLocale(), $name);
 
-        $this->showGroup($user, $chatId, $messageId, $group->id, __('telegram.admin.exercise_created', ['name' => $exercise->name]));
+        if (count($locales) === 1) {
+            $this->stateService->forget($user);
+            $this->showGroup($user, $chatId, $messageId, $group->id, __('telegram.admin.exercise_created', ['name' => $exercise->name]));
+
+            return;
+        }
+
+        $this->stateService->put($user, TelegramState::AwaitingAdminExerciseTranslation, [
+            'message_id' => $messageId,
+            'group_id' => $group->id,
+            'exercise_id' => $exercise->id,
+            'mode' => 'create',
+            'translation_locales' => $locales,
+            'translation_index' => 1,
+        ]);
+
+        $this->promptNextExerciseTranslation($chatId, $messageId, $exercise, $locales, 1);
+    }
+
+    private function handleExerciseTranslation(User $user, array $message, UserTelegramState $state): void
+    {
+        $chatId = (int) data_get($message, 'chat.id');
+        $groupId = (int) data_get($state->payload, 'group_id');
+        $exerciseId = (int) data_get($state->payload, 'exercise_id');
+        $messageId = (int) data_get($state->payload, 'message_id');
+        $mode = (string) data_get($state->payload, 'mode', 'edit');
+        $input = trim((string) data_get($message, 'text', ''));
+        $locales = array_values(array_filter(array_map(
+            static fn ($locale) => strtolower(trim((string) $locale)),
+            (array) data_get($state->payload, 'translation_locales', [])
+        )));
+        $translationIndex = (int) data_get($state->payload, 'translation_index', 0);
+
+        $group = MuscleGroup::query()->with('translations')->find($groupId);
+        $exercise = Exercise::query()->with(['translations', 'muscleGroup.translations'])->find($exerciseId);
+
+        if ($group === null || $exercise === null || $locales === [] || ! isset($locales[$translationIndex])) {
+            $this->stateService->forget($user);
+            $this->bot->sendMessage($chatId, __('telegram.admin.group_not_found'));
+
+            return;
+        }
+
+        if ($input === '') {
+            $this->bot->sendMessage($chatId, __('telegram.admin.invalid_exercise_translation'));
+
+            return;
+        }
+
+        $locale = $locales[$translationIndex];
+
+        if (! in_array(strtolower($input), ['-', 'skip'], true)) {
+            $this->translations->upsertTranslation($exercise, $locale, $input);
+        }
+
+        if ($locale === app()->getLocale() && ! in_array(strtolower($input), ['-', 'skip'], true)) {
+            $exercise->forceFill([
+                'name' => $input,
+                'slug' => Str::slug($input),
+            ])->save();
+        }
+
+        $nextIndex = $translationIndex + 1;
+
+        if (! isset($locales[$nextIndex])) {
+            $this->stateService->forget($user);
+
+            if ($mode === 'create') {
+                $this->showGroup($user, $chatId, $messageId, $group->id, __('telegram.admin.exercise_created', ['name' => $exercise->name]));
+
+                return;
+            }
+
+            $this->showExerciseTranslationsMenu($user, $chatId, $messageId, $group->id, $exercise->id, __('telegram.admin.translation_saved', [
+                'language' => $this->keyboards->languageLabel($locale),
+            ]));
+
+            return;
+        }
+
+        $this->stateService->put($user, TelegramState::AwaitingAdminExerciseTranslation, [
+            'message_id' => $messageId,
+            'group_id' => $group->id,
+            'exercise_id' => $exercise->id,
+            'mode' => $mode,
+            'translation_locales' => $locales,
+            'translation_index' => $nextIndex,
+        ]);
+
+        $this->promptNextExerciseTranslation($chatId, $messageId, $exercise, $locales, $nextIndex);
     }
 
     private function handleExerciseMedia(User $user, array $message, UserTelegramState $state): void
@@ -333,6 +431,44 @@ class AdminFlowHandler
         ]);
     }
 
+    public function showExerciseTranslationsMenu(User $user, int $chatId, int $messageId, int $groupId, int $exerciseId, ?string $headline = null): void
+    {
+        if (! $this->access->isAdmin($user)) {
+            $this->bot->editMessageText($chatId, $messageId, __('telegram.admin.no_access'), [
+                'reply_markup' => $this->keyboards->settingsMenu($user),
+            ]);
+
+            return;
+        }
+
+        $group = MuscleGroup::query()->with('translations')->find($groupId);
+        $exercise = Exercise::query()->with(['translations', 'muscleGroup.translations'])->find($exerciseId);
+
+        if ($group === null || $exercise === null || (int) $exercise->muscle_group_id !== $group->id) {
+            $this->bot->editMessageText($chatId, $messageId, __('telegram.admin.group_not_found'), [
+                'reply_markup' => $this->keyboards->adminGroupsMenu([]),
+            ]);
+
+            return;
+        }
+
+        $translations = $exercise->translations
+            ->mapWithKeys(fn ($translation) => [
+                $translation->locale => [
+                    'name' => $translation->name,
+                    'description' => $translation->description,
+                ],
+            ])
+            ->all();
+
+        $text = $headline ?? __('telegram.admin.translations_title', ['name' => $exercise->name]);
+        $text .= "\n\n".__('telegram.admin.translations_hint');
+
+        $this->bot->editMessageText($chatId, $messageId, $text, [
+            'reply_markup' => $this->keyboards->adminExerciseTranslationsActions($group->id, $exercise->id, $translations),
+        ]);
+    }
+
     public function startExerciseCreate(User $user, int $chatId, int $messageId, int $groupId): void
     {
         if (! $this->access->isAdmin($user)) {
@@ -354,8 +490,46 @@ class AdminFlowHandler
             'group_id' => $group->id,
         ]);
 
-        $this->bot->editMessageText($chatId, $messageId, __('telegram.admin.enter_exercise_name', ['name' => $group->name]), [
+        $this->bot->editMessageText($chatId, $messageId, __('telegram.admin.enter_exercise_name', [
+            'name' => $group->name,
+            'language' => $this->keyboards->languageLabel(app()->getLocale()),
+        ]), [
             'reply_markup' => $this->keyboards->adminExerciseCreateActions($group->id),
+        ]);
+    }
+
+    public function startExerciseTranslation(User $user, int $chatId, int $messageId, int $groupId, int $exerciseId, string $locale): void
+    {
+        if (! $this->access->isAdmin($user)) {
+            return;
+        }
+
+        $group = MuscleGroup::query()->with('translations')->find($groupId);
+        $exercise = Exercise::query()->with(['translations', 'muscleGroup.translations'])->find($exerciseId);
+        $locale = strtolower(trim($locale));
+
+        if ($group === null || $exercise === null || (int) $exercise->muscle_group_id !== $group->id || ! in_array($locale, $this->translations->supportedLocales(), true)) {
+            $this->bot->editMessageText($chatId, $messageId, __('telegram.admin.group_not_found'), [
+                'reply_markup' => $this->keyboards->adminGroupsMenu([]),
+            ]);
+
+            return;
+        }
+
+        $this->stateService->put($user, TelegramState::AwaitingAdminExerciseTranslation, [
+            'message_id' => $messageId,
+            'group_id' => $group->id,
+            'exercise_id' => $exercise->id,
+            'mode' => 'edit',
+            'translation_locales' => [$locale],
+            'translation_index' => 0,
+        ]);
+
+        $this->bot->editMessageText($chatId, $messageId, __('telegram.admin.enter_exercise_translation', [
+            'name' => $exercise->name,
+            'language' => $this->keyboards->languageLabel($locale),
+        ]), [
+            'reply_markup' => $this->keyboards->adminExerciseTranslationInputActions($group->id, $exercise->id),
         ]);
     }
 
@@ -449,5 +623,21 @@ class AdminFlowHandler
         }
 
         return 'photo';
+    }
+
+    private function promptNextExerciseTranslation(int $chatId, int $messageId, Exercise $exercise, array $locales, int $translationIndex): void
+    {
+        $locale = $locales[$translationIndex] ?? null;
+
+        if ($locale === null) {
+            return;
+        }
+
+        $this->bot->editMessageText($chatId, $messageId, __('telegram.admin.enter_exercise_translation', [
+            'name' => $exercise->name,
+            'language' => $this->keyboards->languageLabel($locale),
+        ]), [
+            'reply_markup' => $this->keyboards->adminExerciseTranslationInputActions((int) $exercise->muscle_group_id, $exercise->id),
+        ]);
     }
 }

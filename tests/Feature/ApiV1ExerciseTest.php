@@ -39,10 +39,49 @@ class ApiV1ExerciseTest extends TestCase
                 'name' => 'DB Row',
                 'is_custom' => true,
                 'is_active' => true,
+                'translations' => [
+                    'en' => [
+                        'name' => 'Database Row',
+                    ],
+                    'hy' => [
+                        'name' => 'Տվյալների տող',
+                    ],
+                ],
             ]);
 
         $createResponse->assertCreated()
             ->assertJsonPath('data.name', 'DB Row');
+
+        $createdExercise = Exercise::query()->where('name', 'DB Row')->firstOrFail();
+
+        $this->assertDatabaseHas('exercise_translations', [
+            'exercise_id' => $createdExercise->id,
+            'locale' => 'en',
+            'name' => 'Database Row',
+        ]);
+
+        $this->assertDatabaseHas('exercise_translations', [
+            'exercise_id' => $createdExercise->id,
+            'locale' => 'hy',
+            'name' => 'Տվյալների տող',
+        ]);
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->patchJson('/api/v1/exercises/'.$createdExercise->id, [
+                'translations' => [
+                    'en' => [
+                        'name' => 'Database Row Updated',
+                    ],
+                ],
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.name', 'DB Row');
+
+        $this->assertDatabaseHas('exercise_translations', [
+            'exercise_id' => $createdExercise->id,
+            'locale' => 'en',
+            'name' => 'Database Row Updated',
+        ]);
 
         $otherUser = User::factory()->create();
         $foreignExercise = Exercise::factory()->create([

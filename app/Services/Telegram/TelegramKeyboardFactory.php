@@ -503,6 +503,10 @@ class TelegramKeyboardFactory
                     'text' => $mediaMark,
                     'callback_data' => 'admin:media:'.$groupId.':'.$exercise['id'],
                 ],
+                [
+                    'text' => __('telegram.admin.exercise_translations'),
+                    'callback_data' => 'admin:translations:'.$groupId.':'.$exercise['id'],
+                ],
             ];
         }
 
@@ -889,6 +893,70 @@ class TelegramKeyboardFactory
                 ],
             ],
         ];
+    }
+
+    public function adminExerciseTranslationInputActions(int $groupId, int $exerciseId): array
+    {
+        return [
+            'inline_keyboard' => [
+                [
+                    [
+                        'text' => __('telegram.buttons.back'),
+                        'callback_data' => 'admin:translations:'.$groupId.':'.$exerciseId,
+                    ],
+                    [
+                        'text' => __('telegram.buttons.cancel'),
+                        'callback_data' => 'common:cancel',
+                    ],
+                ],
+            ],
+        ];
+    }
+
+    public function adminExerciseTranslationsActions(int $groupId, int $exerciseId, array $translations): array
+    {
+        $keyboard = [];
+        $row = [];
+
+        $locales = [
+            'ru',
+            'en',
+            'hy',
+        ];
+
+        foreach ($locales as $locale) {
+            $translation = $translations[$locale] ?? null;
+            $name = is_array($translation) ? trim((string) ($translation['name'] ?? '')) : '';
+            $label = $this->languageLabel($locale);
+            $text = $name !== '' ? $label.': '.$name : $label.' —';
+
+            $row[] = [
+                'text' => $text,
+                'callback_data' => 'admin:translation:'.$groupId.':'.$exerciseId.':'.$locale,
+            ];
+
+            if (count($row) === 2) {
+                $keyboard[] = $row;
+                $row = [];
+            }
+        }
+
+        if ($row !== []) {
+            $keyboard[] = $row;
+        }
+
+        $keyboard[] = [
+            [
+                'text' => __('telegram.buttons.back'),
+                'callback_data' => 'admin:group:'.$groupId,
+            ],
+            [
+                'text' => __('telegram.buttons.cancel'),
+                'callback_data' => 'common:cancel',
+            ],
+        ];
+
+        return ['inline_keyboard' => $keyboard];
     }
 
     public function languageLabel(string $locale): string

@@ -15,6 +15,7 @@ enum TelegramState: string
     case AwaitingTemplateMuscleGroups = 'awaiting_template_muscle_groups';
     case AwaitingTemplateExercises = 'awaiting_template_exercises';
     case AwaitingAdminExerciseName = 'awaiting_admin_exercise_name';
+    case AwaitingAdminExerciseTranslation = 'awaiting_admin_exercise_translation';
     case AwaitingAdminExerciseMedia = 'awaiting_admin_exercise_media';
     case AwaitingGoalType = 'awaiting_goal_type';
     case AwaitingGoalValue = 'awaiting_goal_value';

@@ -22,6 +22,11 @@ class ExerciseResource extends JsonResource
             'name' => $this->name,
             'slug' => $this->slug,
             'description' => $this->description,
+            'translations' => $this->whenLoaded('translations', fn () => $this->translations->map(fn ($translation) => [
+                'locale' => $translation->locale,
+                'name' => $translation->name,
+                'description' => $translation->description,
+            ])->values()),
             'media_type' => $this->media_type,
             'media_value' => $this->media_value,
             'is_custom' => $this->is_custom,

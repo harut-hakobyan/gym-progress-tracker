@@ -24,6 +24,7 @@ class TelegramStateMessageHandler
             TelegramState::AwaitingTemplateRename->value,
             TelegramState::AwaitingTemplateMuscleGroups->value => $this->templateFlowHandler->handle($user, $message, $state),
             TelegramState::AwaitingAdminExerciseName->value,
+            TelegramState::AwaitingAdminExerciseTranslation->value,
             TelegramState::AwaitingAdminExerciseMedia->value => $this->adminFlowHandler->handle($user, $message, $state),
             TelegramState::AwaitingSetWeight->value,
             TelegramState::AwaitingSetRepetitions->value => $this->workoutSetInputHandler->handle($user, $message, $state),

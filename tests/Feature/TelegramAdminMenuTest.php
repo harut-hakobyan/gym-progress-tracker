@@ -157,6 +157,42 @@ class TelegramAdminMenuTest extends TestCase
             ],
         ])->assertOk();
 
+        $this->postJson('/api/telegram/webhook/test-secret', [
+            'update_id' => 7007,
+            'message' => [
+                'message_id' => 12,
+                'from' => [
+                    'id' => $adminTelegramId,
+                    'first_name' => 'Admin',
+                    'username' => 'admin',
+                ],
+                'chat' => [
+                    'id' => $adminTelegramId,
+                    'type' => 'private',
+                ],
+                'date' => time(),
+                'text' => 'Admin Press EN',
+            ],
+        ])->assertOk();
+
+        $this->postJson('/api/telegram/webhook/test-secret', [
+            'update_id' => 7008,
+            'message' => [
+                'message_id' => 13,
+                'from' => [
+                    'id' => $adminTelegramId,
+                    'first_name' => 'Admin',
+                    'username' => 'admin',
+                ],
+                'chat' => [
+                    'id' => $adminTelegramId,
+                    'type' => 'private',
+                ],
+                'date' => time(),
+                'text' => 'Admin Press HY',
+            ],
+        ])->assertOk();
+
         $this->assertDatabaseHas('exercises', [
             'user_id' => null,
             'muscle_group_id' => $group->id,
@@ -164,8 +200,31 @@ class TelegramAdminMenuTest extends TestCase
             'is_active' => true,
         ]);
 
+        $createdExercise = Exercise::query()
+            ->where('muscle_group_id', $group->id)
+            ->where('name', 'Admin Press')
+            ->firstOrFail();
+
+        $this->assertDatabaseHas('exercise_translations', [
+            'exercise_id' => $createdExercise->id,
+            'locale' => 'ru',
+            'name' => 'Admin Press',
+        ]);
+
+        $this->assertDatabaseHas('exercise_translations', [
+            'exercise_id' => $createdExercise->id,
+            'locale' => 'en',
+            'name' => 'Admin Press EN',
+        ]);
+
+        $this->assertDatabaseHas('exercise_translations', [
+            'exercise_id' => $createdExercise->id,
+            'locale' => 'hy',
+            'name' => 'Admin Press HY',
+        ]);
+
         $this->postJson('/api/telegram/webhook/test-secret', [
-            'update_id' => 7007,
+            'update_id' => 7009,
             'callback_query' => [
                 'id' => 'cb-6',
                 'from' => [
@@ -187,6 +246,94 @@ class TelegramAdminMenuTest extends TestCase
         $this->assertDatabaseHas('exercises', [
             'id' => $exercise->id,
             'is_active' => false,
+        ]);
+    }
+
+    public function test_admin_can_edit_exercise_translations_in_telegram(): void
+    {
+        Http::fake([
+            'api.telegram.org/*' => Http::response(['ok' => true, 'result' => []], 200),
+        ]);
+
+        $this->seed();
+
+        $adminTelegramId = 990004;
+        config(['telegram.admin_ids' => [$adminTelegramId]]);
+
+        User::factory()->create([
+            'telegram_id' => $adminTelegramId,
+            'email' => null,
+        ]);
+
+        $exercise = Exercise::query()
+            ->with('translations')
+            ->where('is_active', true)
+            ->firstOrFail();
+
+        $groupId = (int) $exercise->muscle_group_id;
+
+        $this->postJson('/api/telegram/webhook/test-secret', [
+            'update_id' => 7011,
+            'callback_query' => [
+                'id' => 'cb-trans-1',
+                'from' => [
+                    'id' => $adminTelegramId,
+                    'first_name' => 'Admin',
+                    'username' => 'admin',
+                ],
+                'message' => [
+                    'message_id' => 10,
+                    'chat' => [
+                        'id' => $adminTelegramId,
+                        'type' => 'private',
+                    ],
+                ],
+                'data' => 'admin:translations:'.$groupId.':'.$exercise->id,
+            ],
+        ])->assertOk();
+
+        $this->postJson('/api/telegram/webhook/test-secret', [
+            'update_id' => 7012,
+            'callback_query' => [
+                'id' => 'cb-trans-2',
+                'from' => [
+                    'id' => $adminTelegramId,
+                    'first_name' => 'Admin',
+                    'username' => 'admin',
+                ],
+                'message' => [
+                    'message_id' => 10,
+                    'chat' => [
+                        'id' => $adminTelegramId,
+                        'type' => 'private',
+                    ],
+                ],
+                'data' => 'admin:translation:'.$groupId.':'.$exercise->id.':en',
+            ],
+        ])->assertOk();
+
+        $this->postJson('/api/telegram/webhook/test-secret', [
+            'update_id' => 7013,
+            'message' => [
+                'message_id' => 11,
+                'from' => [
+                    'id' => $adminTelegramId,
+                    'first_name' => 'Admin',
+                    'username' => 'admin',
+                ],
+                'chat' => [
+                    'id' => $adminTelegramId,
+                    'type' => 'private',
+                ],
+                'date' => time(),
+                'text' => 'Edited English Name',
+            ],
+        ])->assertOk();
+
+        $this->assertDatabaseHas('exercise_translations', [
+            'exercise_id' => $exercise->id,
+            'locale' => 'en',
+            'name' => 'Edited English Name',
         ]);
     }
 
