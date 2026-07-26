@@ -31,7 +31,6 @@ class TelegramKeyboardFactory
         if ($isAdmin) {
             $keyboard['inline_keyboard'][] = [
                 ['text' => __('telegram.buttons.admin_menu'), 'callback_data' => 'admin:menu'],
-                ['text' => __('telegram.buttons.admin_users'), 'callback_data' => 'admin:users'],
             ];
         }
 
