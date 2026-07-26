@@ -2,7 +2,7 @@
 
 return [
     'welcome' => 'Բարի գալուստ, :name։ Սա մարզումների հաշվառման բոթ է։',
-    'main_menu_title' => 'Գլխավոր մենյու....',
+    'main_menu_title' => 'Գլխավոր մենյու',
     'help' => 'Հասանելի հրամաններ՝ /start, /menu, /history, /stats, /records, /goals, /settings, /cancel.',
     'cancelled' => 'Ընթացիկ գործողությունը չեղարկվել է։',
     'unknown_command' => 'Հրամանը չի ճանաչվել։ Օգտագործեք /menu կամ /help։',

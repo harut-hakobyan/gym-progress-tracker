@@ -639,24 +639,13 @@ class TelegramKeyboardFactory
 
         $selected = array_map('intval', $selectedExerciseIds);
 
-        $row = [];
-
         foreach ($exercises as $exercise) {
             $isSelected = in_array((int) $exercise['id'], $selected, true);
 
-            $row[] = [
+            $keyboard[] = [[
                 'text' => ($isSelected ? __('telegram.templates.selected_mark').' ' : '').$exercise['name'],
                 'callback_data' => 'templates:exercise_toggle:'.$templateId.':'.$exercise['id'],
-            ];
-
-            if (count($row) === 2) {
-                $keyboard[] = $row;
-                $row = [];
-            }
-        }
-
-        if ($row !== []) {
-            $keyboard[] = $row;
+            ]];
         }
 
         $keyboard[] = [
@@ -673,24 +662,14 @@ class TelegramKeyboardFactory
     {
         $keyboard = [];
         $selected = array_map('intval', $selectedExerciseIds);
-        $row = [];
 
         foreach ($exercises as $exercise) {
             $isSelected = in_array((int) $exercise['id'], $selected, true);
 
-            $row[] = [
+            $keyboard[] = [[
                 'text' => ($isSelected ? __('telegram.templates.selected_mark').' ' : '').$exercise['name'],
                 'callback_data' => 'templates:create_exercise:'.$exercise['id'],
-            ];
-
-            if (count($row) === 2) {
-                $keyboard[] = $row;
-                $row = [];
-            }
-        }
-
-        if ($row !== []) {
-            $keyboard[] = $row;
+            ]];
         }
 
         $keyboard[] = [
