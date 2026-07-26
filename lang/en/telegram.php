@@ -26,6 +26,7 @@ return [
         'goals' => '🎯 My goals',
         'history' => '📚 History',
         'settings' => '⚙️ Settings',
+        'language' => '🌐 Language',
         'admin_menu' => '👮 Admin menu',
         'admin_groups' => 'Muscle groups',
         'cancel' => '❌ Cancel',
@@ -100,8 +101,11 @@ return [
     ],
     'settings' => [
         'title' => 'Settings',
-        'admin_available' => 'Administration of muscle groups and exercises is available here.',
         'basic' => 'Profile and interface settings will be available here.',
+        'current_language' => 'Current language: :language',
+        'language_title' => 'Language',
+        'language_hint' => 'Choose the interface language.',
+        'language_updated' => 'Language updated.',
     ],
     'admin' => [
         'no_access' => 'You do not have access to the admin menu.',

@@ -2,6 +2,8 @@
 
 namespace App\Services\Telegram;
 
+use App\Models\User;
+
 class TelegramKeyboardFactory
 {
     public function mainMenu(bool $isAdmin = false): array
@@ -346,10 +348,16 @@ class TelegramKeyboardFactory
         ];
     }
 
-    public function settingsMenu(): array
+    public function settingsMenu(User $user): array
     {
         return [
             'inline_keyboard' => [
+                [
+                    [
+                        'text' => __('telegram.buttons.language'),
+                        'callback_data' => 'settings:language',
+                    ],
+                ],
                 [
                     [
                         'text' => __('telegram.buttons.back'),
@@ -358,6 +366,38 @@ class TelegramKeyboardFactory
                 ],
             ],
         ];
+    }
+
+    public function languageMenu(string $currentLanguage): array
+    {
+        $keyboard = [
+            [
+                [
+                    'text' => $this->languageButtonLabel('en', $currentLanguage),
+                    'callback_data' => 'settings:language:en',
+                ],
+            ],
+            [
+                [
+                    'text' => $this->languageButtonLabel('ru', $currentLanguage),
+                    'callback_data' => 'settings:language:ru',
+                ],
+            ],
+            [
+                [
+                    'text' => $this->languageButtonLabel('hy', $currentLanguage),
+                    'callback_data' => 'settings:language:hy',
+                ],
+            ],
+            [
+                [
+                    'text' => __('telegram.buttons.back'),
+                    'callback_data' => 'settings:main',
+                ],
+            ],
+        ];
+
+        return ['inline_keyboard' => $keyboard];
     }
 
     public function adminMenu(): array
@@ -834,5 +874,20 @@ class TelegramKeyboardFactory
                 ],
             ],
         ];
+    }
+
+    public function languageLabel(string $locale): string
+    {
+        return match ($locale) {
+            'en' => 'English',
+            'ru' => 'Русский',
+            'hy' => 'Հայերեն',
+            default => strtoupper($locale),
+        };
+    }
+
+    private function languageButtonLabel(string $locale, string $currentLanguage): string
+    {
+        return ($currentLanguage === $locale ? __('telegram.templates.selected_mark').' ' : '').$this->languageLabel($locale);
     }
 }

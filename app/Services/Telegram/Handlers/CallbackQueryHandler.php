@@ -7,6 +7,7 @@ use App\Services\Telegram\TelegramAccessService;
 use App\Services\Telegram\TelegramBotService;
 use App\Services\Telegram\TelegramKeyboardFactory;
 use App\Services\Telegram\TelegramStateService;
+use App\Services\Telegram\TelegramUserService;
 use App\Services\Telegram\Handlers\WorkoutFlowHandler;
 use App\Services\Telegram\Handlers\WorkoutSetInputHandler;
 
@@ -17,6 +18,7 @@ class CallbackQueryHandler
         private readonly TelegramKeyboardFactory $keyboards,
         private readonly TelegramStateService $stateService,
         private readonly TelegramAccessService $access,
+        private readonly TelegramUserService $userService,
         private readonly TemplateFlowHandler $templateFlowHandler,
         private readonly AdminFlowHandler $adminFlowHandler,
         private readonly WorkoutFlowHandler $workoutFlowHandler,
@@ -268,6 +270,31 @@ class CallbackQueryHandler
         if ($action === 'main') {
             $this->bot->answerCallbackQuery($callbackQueryId);
             $this->adminFlowHandler->showSettingsMenu($user, $chatId, $messageId);
+
+            return;
+        }
+
+        if ($action === 'language' && $target === null) {
+            $this->bot->answerCallbackQuery($callbackQueryId);
+            $this->adminFlowHandler->showLanguageMenu($user, $chatId, $messageId);
+
+            return;
+        }
+
+        if ($action === 'language' && $target !== null) {
+            if (! $this->userService->isSupportedLocale($target)) {
+                $this->bot->answerCallbackQuery($callbackQueryId, __('telegram.unknown_action'));
+
+                return;
+            }
+
+            $updatedUser = $this->userService->updatePreferredLanguage($user, $target);
+            app()->setLocale($this->userService->localeForUser($updatedUser));
+
+            $this->bot->answerCallbackQuery($callbackQueryId, __('telegram.settings.language_updated', [
+                'language' => $this->keyboards->languageLabel((string) $updatedUser->preferred_language),
+            ]));
+            $this->adminFlowHandler->showSettingsMenu($updatedUser, $chatId, $messageId);
 
             return;
         }

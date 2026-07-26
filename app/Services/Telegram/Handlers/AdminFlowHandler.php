@@ -28,7 +28,11 @@ class AdminFlowHandler
         $text = __('telegram.settings.title');
         $text .= "\n\n".__('telegram.settings.basic');
 
-        $replyMarkup = ['reply_markup' => $this->keyboards->settingsMenu()];
+        $text .= "\n\n".__('telegram.settings.current_language', [
+            'language' => $this->keyboards->languageLabel((string) $user->preferred_language),
+        ]);
+
+        $replyMarkup = ['reply_markup' => $this->keyboards->settingsMenu($user)];
 
         if ($messageId === null) {
             $this->bot->sendMessage($chatId, $text, $replyMarkup);
@@ -37,6 +41,19 @@ class AdminFlowHandler
         }
 
         $this->bot->editMessageText($chatId, $messageId, $text, $replyMarkup);
+    }
+
+    public function showLanguageMenu(User $user, int $chatId, int $messageId): void
+    {
+        $text = __('telegram.settings.language_title');
+        $text .= "\n\n".__('telegram.settings.language_hint');
+        $text .= "\n\n".__('telegram.settings.current_language', [
+            'language' => $this->keyboards->languageLabel((string) $user->preferred_language),
+        ]);
+
+        $this->bot->editMessageText($chatId, $messageId, $text, [
+            'reply_markup' => $this->keyboards->languageMenu((string) $user->preferred_language),
+        ]);
     }
 
     public function handle(User $user, array $message, UserTelegramState $state): void
@@ -142,7 +159,7 @@ class AdminFlowHandler
     {
         if (! $this->access->isAdmin($user)) {
             $this->bot->editMessageText($chatId, $messageId, __('telegram.admin.no_access'), [
-                'reply_markup' => $this->keyboards->settingsMenu(),
+                'reply_markup' => $this->keyboards->settingsMenu($user),
             ]);
 
             return;
@@ -159,7 +176,7 @@ class AdminFlowHandler
     {
         if (! $this->access->isAdmin($user)) {
             $this->bot->editMessageText($chatId, $messageId, __('telegram.admin.no_access'), [
-                'reply_markup' => $this->keyboards->settingsMenu(),
+                'reply_markup' => $this->keyboards->settingsMenu($user),
             ]);
 
             return;
@@ -187,7 +204,7 @@ class AdminFlowHandler
     {
         if (! $this->access->isAdmin($user)) {
             $this->bot->editMessageText($chatId, $messageId, __('telegram.admin.no_access'), [
-                'reply_markup' => $this->keyboards->settingsMenu(),
+                'reply_markup' => $this->keyboards->settingsMenu($user),
             ]);
 
             return;
@@ -232,7 +249,7 @@ class AdminFlowHandler
     {
         if (! $this->access->isAdmin($user)) {
             $this->bot->editMessageText($chatId, $messageId, __('telegram.admin.no_access'), [
-                'reply_markup' => $this->keyboards->settingsMenu(),
+                'reply_markup' => $this->keyboards->settingsMenu($user),
             ]);
 
             return;

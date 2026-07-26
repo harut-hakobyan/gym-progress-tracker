@@ -52,6 +52,7 @@ class TelegramUpdateProcessor
     private function handleMessage(array $message, int $updateId): void
     {
         $user = $this->userService->resolveFromMessage($message);
+        app()->setLocale($this->userService->localeForUser($user));
         $text = trim((string) data_get($message, 'text', ''));
         $state = $this->stateService->get($user);
 
@@ -84,6 +85,7 @@ class TelegramUpdateProcessor
             return;
         }
 
+        app()->setLocale($this->userService->localeForUser($user));
         $this->callbackQueryHandler->handle($user, $callbackQuery, $updateId);
     }
 
