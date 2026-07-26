@@ -189,4 +189,55 @@ class TelegramAdminMenuTest extends TestCase
             'is_active' => false,
         ]);
     }
+
+    public function test_admin_can_view_users_list_in_telegram(): void
+    {
+        Http::fake([
+            'api.telegram.org/*' => Http::response(['ok' => true, 'result' => []], 200),
+        ]);
+
+        $this->seed();
+
+        $adminTelegramId = 990002;
+        config(['telegram.admin_ids' => [$adminTelegramId]]);
+
+        User::factory()->create([
+            'telegram_id' => $adminTelegramId,
+            'email' => null,
+        ]);
+
+        User::factory()->create([
+            'name' => 'Alice User',
+            'telegram_id' => 990003,
+            'telegram_username' => 'alice',
+            'email' => null,
+            'preferred_language' => 'en',
+        ]);
+
+        $this->postJson('/api/telegram/webhook/test-secret', [
+            'update_id' => 7010,
+            'callback_query' => [
+                'id' => 'cb-users',
+                'from' => [
+                    'id' => $adminTelegramId,
+                    'first_name' => 'Admin',
+                    'username' => 'admin',
+                ],
+                'message' => [
+                    'message_id' => 10,
+                    'chat' => [
+                        'id' => $adminTelegramId,
+                        'type' => 'private',
+                    ],
+                ],
+                'data' => 'admin:users',
+            ],
+        ])->assertOk();
+
+        Http::assertSent(function ($request): bool {
+            return str_contains($request->url(), 'editMessageText')
+                && str_contains((string) $request['text'], __('telegram.admin.users_title'))
+                && str_contains((string) $request['text'], 'Alice User');
+        });
+    }
 }

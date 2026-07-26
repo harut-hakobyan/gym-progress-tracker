@@ -172,6 +172,58 @@ class AdminFlowHandler
         ]);
     }
 
+    public function showUsersMenu(User $user, int $chatId, int $messageId, int $page = 1): void
+    {
+        if (! $this->access->isAdmin($user)) {
+            $this->bot->editMessageText($chatId, $messageId, __('telegram.admin.no_access'), [
+                'reply_markup' => $this->keyboards->settingsMenu($user),
+            ]);
+
+            return;
+        }
+
+        $perPage = 10;
+        $page = max(1, $page);
+
+        $query = User::query()->orderBy('id');
+        $total = (int) $query->count();
+        $lastPage = max(1, (int) ceil($total / $perPage));
+        $page = min($page, $lastPage);
+
+        $users = $query
+            ->forPage($page, $perPage)
+            ->get();
+
+        $lines = [
+            __('telegram.admin.users_title'),
+            __('telegram.admin.users_hint'),
+            __('telegram.admin.users_page', [
+                'page' => $page,
+                'last_page' => $lastPage,
+            ]),
+        ];
+
+        if ($users->isEmpty()) {
+            $lines[] = '';
+            $lines[] = __('telegram.admin.users_empty');
+        } else {
+            $lines[] = '';
+
+            foreach ($users as $listedUser) {
+                $lines[] = __('telegram.admin.users_row', [
+                    'name' => $listedUser->name,
+                    'username' => $listedUser->telegram_username ?: '—',
+                    'telegram_id' => $listedUser->telegram_id,
+                    'language' => $this->keyboards->languageLabel((string) $listedUser->preferred_language),
+                ]);
+            }
+        }
+
+        $this->bot->editMessageText($chatId, $messageId, implode("\n", $lines), [
+            'reply_markup' => $this->keyboards->adminUsersMenu($page, $lastPage),
+        ]);
+    }
+
     public function showAdminGroupsMenu(User $user, int $chatId, int $messageId): void
     {
         if (! $this->access->isAdmin($user)) {

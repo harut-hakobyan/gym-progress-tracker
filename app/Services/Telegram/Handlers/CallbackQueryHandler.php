@@ -335,6 +335,20 @@ class CallbackQueryHandler
             return;
         }
 
+        if ($action === 'users') {
+            $this->bot->answerCallbackQuery($callbackQueryId);
+            $this->adminFlowHandler->showUsersMenu($user, $chatId, $messageId);
+
+            return;
+        }
+
+        if ($action === 'users_page' && $target !== null) {
+            $this->bot->answerCallbackQuery($callbackQueryId);
+            $this->adminFlowHandler->showUsersMenu($user, $chatId, $messageId, (int) $target);
+
+            return;
+        }
+
         if ($action === 'group' && $target !== null) {
             $this->bot->answerCallbackQuery($callbackQueryId);
             $this->adminFlowHandler->showGroup($user, $chatId, $messageId, (int) $target);

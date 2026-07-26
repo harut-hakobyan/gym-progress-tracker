@@ -31,6 +31,7 @@ class TelegramKeyboardFactory
         if ($isAdmin) {
             $keyboard['inline_keyboard'][] = [
                 ['text' => __('telegram.buttons.admin_menu'), 'callback_data' => 'admin:menu'],
+                ['text' => __('telegram.buttons.admin_users'), 'callback_data' => 'admin:users'],
             ];
         }
 
@@ -409,6 +410,10 @@ class TelegramKeyboardFactory
                         'text' => __('telegram.buttons.admin_groups'),
                         'callback_data' => 'admin:groups',
                     ],
+                    [
+                        'text' => __('telegram.buttons.admin_users'),
+                        'callback_data' => 'admin:users',
+                    ],
                 ],
                 [
                     [
@@ -418,6 +423,42 @@ class TelegramKeyboardFactory
                 ],
             ],
         ];
+    }
+
+    public function adminUsersMenu(int $page, int $lastPage): array
+    {
+        $keyboard = [];
+
+        if ($lastPage > 1) {
+            $navRow = [];
+
+            if ($page > 1) {
+                $navRow[] = [
+                    'text' => '⬅️',
+                    'callback_data' => 'admin:users_page:'.($page - 1),
+                ];
+            }
+
+            if ($page < $lastPage) {
+                $navRow[] = [
+                    'text' => '➡️',
+                    'callback_data' => 'admin:users_page:'.($page + 1),
+                ];
+            }
+
+            if ($navRow !== []) {
+                $keyboard[] = $navRow;
+            }
+        }
+
+        $keyboard[] = [
+            [
+                'text' => __('telegram.buttons.back'),
+                'callback_data' => 'admin:menu',
+            ],
+        ];
+
+        return ['inline_keyboard' => $keyboard];
     }
 
     public function adminGroupsMenu(array $groups): array
