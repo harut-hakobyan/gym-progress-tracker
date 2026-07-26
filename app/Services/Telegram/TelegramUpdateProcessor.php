@@ -13,6 +13,7 @@ class TelegramUpdateProcessor
 {
     public function __construct(
         private readonly TelegramUserService $userService,
+        private readonly TelegramBotService $bot,
         private readonly CommandHandler $commandHandler,
         private readonly CallbackQueryHandler $callbackQueryHandler,
         private readonly TelegramStateService $stateService,
@@ -54,27 +55,37 @@ class TelegramUpdateProcessor
         $user = $this->userService->resolveFromMessage($message);
         app()->setLocale($this->userService->localeForUser($user));
         $text = trim((string) data_get($message, 'text', ''));
+        $chatId = (int) data_get($message, 'chat.id');
+        $messageId = (int) data_get($message, 'message_id', 0);
         $state = $this->stateService->get($user);
+        $shouldDelete = $messageId > 0;
 
         if ($state !== null && $text === '') {
             $this->stateMessageHandler->handle($user, $message, $state);
+            $this->deleteIncomingMessage($chatId, $messageId);
 
             return;
         }
 
         if ($text === '') {
+            $this->deleteIncomingMessage($chatId, $messageId);
+
             return;
         }
 
         if (! str_starts_with($text, '/')) {
             if ($state !== null) {
                 $this->stateMessageHandler->handle($user, $message, $state);
+                $this->deleteIncomingMessage($chatId, $messageId);
 
                 return;
             }
         }
 
         $this->commandHandler->handle($user, $message, $text, $updateId);
+        if ($shouldDelete) {
+            $this->deleteIncomingMessage($chatId, $messageId);
+        }
     }
 
     private function handleCallbackQuery(array $callbackQuery, int $updateId): void
@@ -134,5 +145,14 @@ class TelegramUpdateProcessor
             'update_id' => $updateId,
             'message' => $message,
         ]);
+    }
+
+    private function deleteIncomingMessage(int $chatId, int $messageId): void
+    {
+        if ($chatId <= 0 || $messageId <= 0) {
+            return;
+        }
+
+        $this->bot->deleteMessage($chatId, $messageId);
     }
 }

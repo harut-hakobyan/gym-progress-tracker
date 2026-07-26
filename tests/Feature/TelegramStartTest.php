@@ -106,4 +106,65 @@ class TelegramStartTest extends TestCase
 
         Http::assertSentCount(1);
     }
+
+    public function test_start_command_reuses_the_existing_main_menu_message(): void
+    {
+        Http::fake([
+            'api.telegram.org/*sendMessage' => Http::sequence()
+                ->push([
+                    'ok' => true,
+                    'result' => [
+                        'message_id' => 200,
+                    ],
+                ], 200)
+                ->push([
+                    'ok' => true,
+                    'result' => [
+                        'message_id' => 201,
+                    ],
+                ], 200),
+            'api.telegram.org/*deleteMessage' => Http::response([
+                'ok' => true,
+            ], 200),
+        ]);
+
+        $payload = [
+            'update_id' => 1003,
+            'message' => [
+                'message_id' => 12,
+                'from' => [
+                    'id' => 555333,
+                    'first_name' => 'Harut',
+                    'last_name' => 'Mkrtchyan',
+                    'username' => 'harut',
+                ],
+                'chat' => [
+                    'id' => 555333,
+                    'type' => 'private',
+                ],
+                'date' => time(),
+                'text' => '/start',
+            ],
+        ];
+
+        $response = $this->postJson('/api/telegram/webhook/test-secret', $payload);
+        $response->assertOk();
+
+        $payload['update_id'] = 1004;
+        $payload['message']['message_id'] = 13;
+
+        $response = $this->postJson('/api/telegram/webhook/test-secret', $payload);
+        $response->assertOk();
+
+        Http::assertSentCount(3);
+
+        Http::assertSent(function ($request): bool {
+            return str_contains($request->url(), 'sendMessage');
+        });
+
+        Http::assertSent(function ($request): bool {
+            return str_contains($request->url(), 'deleteMessage')
+                && (int) $request['message_id'] === 200;
+        });
+    }
 }

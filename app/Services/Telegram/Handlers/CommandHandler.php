@@ -3,18 +3,16 @@
 namespace App\Services\Telegram\Handlers;
 
 use App\Models\User;
-use App\Services\Telegram\TelegramAccessService;
 use App\Services\Telegram\TelegramBotService;
-use App\Services\Telegram\TelegramKeyboardFactory;
+use App\Services\Telegram\TelegramMainMenuService;
 use App\Services\Telegram\TelegramStateService;
 
 class CommandHandler
 {
     public function __construct(
         private readonly TelegramBotService $bot,
-        private readonly TelegramKeyboardFactory $keyboards,
         private readonly TelegramStateService $stateService,
-        private readonly TelegramAccessService $access,
+        private readonly TelegramMainMenuService $mainMenuService,
         private readonly StartCommandHandler $startCommandHandler,
         private readonly AdminFlowHandler $adminFlowHandler,
         private readonly WorkoutFlowHandler $workoutFlowHandler,
@@ -68,20 +66,20 @@ class CommandHandler
 
     private function showMainMenu(User $user, int $chatId): void
     {
-        $this->bot->sendMessage(
-            $chatId,
-            __('telegram.main_menu_title'),
-            ['reply_markup' => $this->keyboards->mainMenu($this->access->isAdmin($user))]
-        );
+        $this->mainMenuService->show($user, $chatId, __('telegram.main_menu_title'), null, true);
     }
 
     private function cancel(User $user, int $chatId): void
     {
         $this->stateService->forget($user);
 
-        $this->bot->sendMessage($chatId, __('telegram.cancelled'), [
-            'reply_markup' => $this->keyboards->mainMenu($this->access->isAdmin($user)),
-        ]);
+        $this->mainMenuService->show(
+            $user,
+            $chatId,
+            __('telegram.cancelled')."\n\n".__('telegram.main_menu_title'),
+            null,
+            true
+        );
     }
 
     private function help(int $chatId): void

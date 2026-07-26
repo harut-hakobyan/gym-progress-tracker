@@ -2,7 +2,6 @@
 
 namespace App\Services\Telegram;
 
-use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -11,7 +10,15 @@ class TelegramBotService
 {
     public function sendMessage(int|string $chatId, string $text, array $extra = []): bool
     {
-        return $this->request('sendMessage', array_merge([
+        return $this->requestResult('sendMessage', array_merge([
+            'chat_id' => $chatId,
+            'text' => $text,
+        ], $extra))['successful'];
+    }
+
+    public function sendMessageResult(int|string $chatId, string $text, array $extra = []): array
+    {
+        return $this->requestResult('sendMessage', array_merge([
             'chat_id' => $chatId,
             'text' => $text,
         ], $extra));
@@ -19,7 +26,16 @@ class TelegramBotService
 
     public function editMessageText(int|string $chatId, int $messageId, string $text, array $extra = []): bool
     {
-        return $this->request('editMessageText', array_merge([
+        return $this->requestResult('editMessageText', array_merge([
+            'chat_id' => $chatId,
+            'message_id' => $messageId,
+            'text' => $text,
+        ], $extra))['successful'];
+    }
+
+    public function editMessageTextResult(int|string $chatId, int $messageId, string $text, array $extra = []): array
+    {
+        return $this->requestResult('editMessageText', array_merge([
             'chat_id' => $chatId,
             'message_id' => $messageId,
             'text' => $text,
@@ -28,11 +44,19 @@ class TelegramBotService
 
     public function editMessageMedia(int|string $chatId, int $messageId, array $media, array $extra = []): bool
     {
-        return $this->request('editMessageMedia', array_merge([
+        return $this->requestResult('editMessageMedia', array_merge([
             'chat_id' => $chatId,
             'message_id' => $messageId,
             'media' => json_encode($media, JSON_UNESCAPED_UNICODE),
-        ], $extra));
+        ], $extra))['successful'];
+    }
+
+    public function deleteMessage(int|string $chatId, int $messageId): bool
+    {
+        return $this->requestResult('deleteMessage', [
+            'chat_id' => $chatId,
+            'message_id' => $messageId,
+        ])['successful'];
     }
 
     public function answerCallbackQuery(string $callbackQueryId, ?string $text = null, bool $showAlert = false): bool
@@ -46,25 +70,33 @@ class TelegramBotService
             $payload['text'] = $text;
         }
 
-        return $this->request('answerCallbackQuery', $payload);
+        return $this->requestResult('answerCallbackQuery', $payload)['successful'];
     }
 
     public function sendChatAction(int|string $chatId, string $action): bool
     {
-        return $this->request('sendChatAction', [
+        return $this->requestResult('sendChatAction', [
             'chat_id' => $chatId,
             'action' => $action,
-        ]);
+        ])['successful'];
     }
 
-    private function request(string $method, array $payload): bool
+    /**
+     * @return array{successful:bool,status:int,body:string,json:array<string,mixed>}
+     */
+    private function requestResult(string $method, array $payload): array
     {
         $token = (string) config('telegram.bot_token');
 
         if ($token === '') {
             Log::channel('telegram')->error('telegram.api.missing_token', ['method' => $method]);
 
-            return false;
+            return [
+                'successful' => false,
+                'status' => 0,
+                'body' => '',
+                'json' => [],
+            ];
         }
 
         if (isset($payload['reply_markup']) && is_array($payload['reply_markup'])) {
@@ -85,17 +117,32 @@ class TelegramBotService
                     'body' => $response->body(),
                 ]);
 
-                return false;
+                return [
+                    'successful' => false,
+                    'status' => $response->status(),
+                    'body' => $response->body(),
+                    'json' => (array) $response->json(),
+                ];
             }
 
-            return (bool) $response->json('ok', false);
+            return [
+                'successful' => (bool) $response->json('ok', false),
+                'status' => $response->status(),
+                'body' => $response->body(),
+                'json' => (array) $response->json(),
+            ];
         } catch (Throwable $e) {
             Log::channel('telegram')->error('telegram.api.exception', [
                 'method' => $method,
                 'message' => $e->getMessage(),
             ]);
 
-            return false;
+            return [
+                'successful' => false,
+                'status' => 0,
+                'body' => $e->getMessage(),
+                'json' => [],
+            ];
         }
     }
 }

@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Services\Telegram\TelegramAccessService;
 use App\Services\Telegram\TelegramBotService;
 use App\Services\Telegram\TelegramKeyboardFactory;
+use App\Services\Telegram\TelegramMainMenuService;
 use App\Services\Telegram\TelegramStateService;
 use App\Services\Telegram\TelegramUserService;
 use App\Services\Telegram\Handlers\WorkoutFlowHandler;
@@ -16,6 +17,7 @@ class CallbackQueryHandler
     public function __construct(
         private readonly TelegramBotService $bot,
         private readonly TelegramKeyboardFactory $keyboards,
+        private readonly TelegramMainMenuService $mainMenuService,
         private readonly TelegramStateService $stateService,
         private readonly TelegramAccessService $access,
         private readonly TelegramUserService $userService,
@@ -373,17 +375,13 @@ class CallbackQueryHandler
 
     private function showMainMenu(User $user, int $chatId, int $messageId, bool $sendAsNewMessage = false): void
     {
-        $replyMarkup = [
-            'reply_markup' => $this->keyboards->mainMenu($this->access->isAdmin($user)),
-        ];
-
-        if ($sendAsNewMessage) {
-            $this->bot->sendMessage($chatId, __('telegram.main_menu_title'), $replyMarkup);
-
-            return;
-        }
-
-        $this->bot->editMessageText($chatId, $messageId, __('telegram.main_menu_title'), $replyMarkup);
+        $this->mainMenuService->show(
+            $user,
+            $chatId,
+            __('telegram.main_menu_title'),
+            $messageId,
+            $sendAsNewMessage
+        );
     }
 
     private function isMediaMessage(array $callbackQuery): bool
