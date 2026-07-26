@@ -146,7 +146,7 @@ return [
         'last_result' => 'Last result:',
         'last_result_value' => ':weight kg × :repetitions',
         'no_history' => 'No history for this exercise yet.',
-        'best_weight' => 'Best weight: :weight kg',
+        'best_weight' => 'Best weight: :weight (kg)',
         'best_1rm' => 'Best estimated 1RM: :value kg',
         'recommendation' => 'Today recommendation: :weight kg',
         'recent_sets_title' => 'Recent sets:',
