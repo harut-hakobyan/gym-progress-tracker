@@ -137,7 +137,7 @@ class TelegramTemplateFlowTest extends TestCase
                         'type' => 'private',
                     ],
                 ],
-                'data' => 'templates:split:chest_triceps',
+                'data' => 'templates:split:push',
             ],
         ])->assertOk();
 

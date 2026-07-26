@@ -762,31 +762,16 @@ class TelegramKeyboardFactory
 
         $keyboard[] = [
             [
-                'text' => __('telegram.templates.preset_chest_triceps'),
-                'callback_data' => 'templates:split:chest_triceps',
-            ],
-            [
-                'text' => __('telegram.templates.preset_back_biceps'),
-                'callback_data' => 'templates:split:back_biceps',
-            ],
-        ];
-
-        $keyboard[] = [
-            [
-                'text' => __('telegram.templates.preset_back_legs'),
-                'callback_data' => 'templates:split:back_legs',
-            ],
-            [
                 'text' => __('telegram.templates.preset_push'),
                 'callback_data' => 'templates:split:push',
             ],
-        ];
-
-        $keyboard[] = [
             [
                 'text' => __('telegram.templates.preset_pull'),
                 'callback_data' => 'templates:split:pull',
             ],
+        ];
+
+        $keyboard[] = [
             [
                 'text' => __('telegram.templates.preset_full_body'),
                 'callback_data' => 'templates:split:full_body',

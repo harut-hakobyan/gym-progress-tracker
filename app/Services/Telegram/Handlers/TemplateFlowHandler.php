@@ -1058,9 +1058,6 @@ class TemplateFlowHandler
     private function presetGroupNames(string $preset): array
     {
         return match ($preset) {
-            'chest_triceps' => ['Грудь', 'Трицепс'],
-            'back_biceps' => ['Спина', 'Бицепс'],
-            'back_legs' => ['Спина', 'Ноги'],
             'push' => ['Грудь', 'Плечи', 'Трицепс'],
             'pull' => ['Спина', 'Бицепс', 'Предплечья'],
             'legs' => ['Ноги', 'Ягодицы', 'Икры'],
